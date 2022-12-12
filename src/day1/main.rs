@@ -71,7 +71,10 @@ fn main() -> std::io::Result<()> {
             podium
         });
 
-    println!("Sum of the calories of the top 3 elves tht picked the most calories {:?}", podium.sum_calories());
+    println!(
+        "Sum of the calories of the top 3 elves tht picked the most calories {:?}",
+        podium.sum_calories()
+    );
 
     Ok(())
 }
