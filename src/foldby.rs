@@ -105,7 +105,12 @@ mod test {
 
     #[test]
     fn it_works_with_chars() {
-        let elmts: Vec<char> = "abcdefghijklmnopqrstuvwxyz".chars().fold_by(3, 'a', |acc, cur| ((*acc as u8 + cur as u8) % 26 + 65) as char ).collect();
+        let elmts: Vec<char> = "abcdefghijklmnopqrstuvwxyz"
+            .chars()
+            .fold_by(3, 'a', |acc, cur| {
+                ((*acc as u8 + cur as u8) % 26 + 65) as char
+            })
+            .collect();
         dbg!(&elmts);
         assert_eq!(elmts, vec!['B', 'K', 'T', 'C', 'L', 'U', 'D', 'M', 'P']);
     }
