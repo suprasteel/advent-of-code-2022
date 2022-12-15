@@ -17,6 +17,10 @@ path = "src/day2/main.rs"
 name = "day3"
 path = "src/day3/main.rs"
 
+[[bin]]
+name = "day4"
+path = "src/day4/main.rs"
+
 [dependencies]
 simple_logger = "2.2.0"
 log = "0.4.17"
