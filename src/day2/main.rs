@@ -1,5 +1,16 @@
 use std::fs::read_to_string;
 
+// Which part of day2 ?
+const VARIANT: u8 = 0;
+
+const fn get_score_fn() -> fn(&str) -> u32 {
+    match VARIANT {
+        1 => calc_score_1,
+        2 => calc_score_2,
+        _ => panic!("not a valid version"),
+    }
+}
+
 /// For example, suppose you were given the following strategy guide:
 ///
 /// A Y
@@ -22,7 +33,7 @@ use std::fs::read_to_string;
 ///
 fn main() -> std::io::Result<()> {
     let data_string = read_to_string("./data/day2.dat")?;
-    let result = sum_games(data_string, calc_score_2);
+    let result = sum_games(data_string, get_score_fn());
     println!("{}", result);
     Ok(())
 }
