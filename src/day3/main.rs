@@ -173,7 +173,8 @@ mod test {
     }
 
     #[test]
-    fn retrieve_priority_from_u64_works_until_52() { // 52 => Z
+    fn retrieve_priority_from_u64_works_until_52() {
+        // 52 => Z
         assert_ne!(bits_to_priority(2_u64.pow(52)), 0);
         assert_eq!(bits_to_priority(2_u64.pow(53)), 0);
     }
