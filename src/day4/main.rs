@@ -66,7 +66,11 @@ impl Assignment {
     }
 
     fn overlaps(&self, other: &Assignment) -> bool {
-        if other.0 > self.0 { other.0 <= self.1 } else { other.1 >= self.0 }
+        if other.0 > self.0 {
+            other.0 <= self.1
+        } else {
+            other.1 >= self.0
+        }
     }
 }
 

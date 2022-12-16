@@ -1,4 +1,7 @@
-use crate::{count_teams_having_complete_taks_inclusion, Assignment, ElvesTeam, count_teams_having_overlaping_tasks};
+use crate::{
+    count_teams_having_complete_taks_inclusion, count_teams_having_overlaping_tasks, Assignment,
+    ElvesTeam,
+};
 
 #[test]
 fn parse_team() {
@@ -16,7 +19,6 @@ fn the_same_task_overlaps() {
         ElvesTeam::parse("1-1,1-1").unwrap().has_assign_overlaps(),
         true
     );
-    
 }
 
 #[test]
@@ -58,8 +60,7 @@ fn validate_with_example_2() {
 fn validate_with_example_2_2() {
     //simple_logger::init_with_level(log::Level::Debug).unwrap();
 
-    const INPUT: &str = 
-"1-3,4-6
+    const INPUT: &str = "1-3,4-6
 1-3,100-200
 5-60,60-100
 1-1,1-1
@@ -79,4 +80,3 @@ fn validate_with_example_2_2() {
     let sum = count_teams_having_overlaping_tasks(INPUT);
     assert_eq!(sum, 11);
 }
-
