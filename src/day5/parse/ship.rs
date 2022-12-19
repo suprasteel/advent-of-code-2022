@@ -1,16 +1,19 @@
-use crate::ship::{Ship, ToChar};
+use crate::{charables::TryFromChar, ship::Ship};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Cell {
-    Char(char),
+enum Cell<T> {
+    Value(T),
     Index(u8),
     Empty,
 }
 
-impl Cell {
-    fn extract_char(&self) -> Option<char> {
+impl<T> Cell<T>
+where
+    T: TryFromChar,
+{
+    fn extract_value(self) -> Option<T> {
         match self {
-            Self::Char(c) => Some(*c),
+            Self::Value(c) => Some(c),
             _ => None,
         }
     }
@@ -19,7 +22,7 @@ impl Cell {
         matches!(self, Cell::Index(_))
     }
 
-    fn parse<'s>(s: &'s str) -> Result<(&'s str, Cell), &'s str> {
+    fn parse<'s>(s: &'s str) -> Result<(&'s str, Cell<T>), &'s str> {
         log::debug!("parse cell : {} ... ({})", &s[0..3], s.len());
         if s.len() < 3 {
             Err(s)
@@ -31,7 +34,10 @@ impl Cell {
             let c3 = chrs.next().unwrap();
             match (c1, c2, c3) {
                 (' ', ' ', ' ') => Ok((rem, Cell::Empty)),
-                ('[', c, ']') => Ok((rem, Cell::Char(c))),
+                ('[', c, ']') => {
+                    let t = T::try_from_char(c).map_err(|_| "try_from_char failed")?;
+                    Ok((rem, Cell::Value(t)))
+                }
                 (' ', n, ' ') if n.is_numeric() => Ok((rem, Cell::Index(n as u8 - '0' as u8))),
                 _ => Err(cell),
             }
@@ -40,14 +46,17 @@ impl Cell {
 }
 
 #[derive(Debug, Clone)]
-enum Line {
-    Content(Vec<Cell>),
-    Abscissa(Vec<Cell>),
+enum Line<T> {
+    Content(Vec<Cell<T>>),
+    Abscissa(Vec<Cell<T>>),
     Empty,
 }
 
-impl Line {
-    fn parse<'l>(input: &'l str) -> Result<(&'l str, Line), &'l str> {
+impl<T> Line<T>
+where
+    T: TryFromChar,
+{
+    fn parse<'l>(input: &'l str) -> Result<(&'l str, Line<T>), &'l str> {
         let (mut line, rest) = input.split_once('\n').unwrap_or((input, ""));
         log::debug!("parse line : {} ... ({})", line, line.len());
         match line.len() {
@@ -56,10 +65,8 @@ impl Line {
                 let mut cells = Vec::with_capacity(n);
                 let mut line_of_indexes: Option<bool> = None;
                 loop {
-                    let cell: Cell;
+                    let cell: Cell<T>;
                     (line, cell) = Cell::parse(line)?;
-
-                    log::trace!(target: "line", "cell {:?}", cell);
 
                     if !check_consistency(&mut line_of_indexes, cell.is_index()) {
                         return Err(" both indexes and values found");
@@ -104,16 +111,16 @@ where
 
 impl<T> Ship<T>
 where
-    T: ToChar,
+    T: TryFromChar + Clone,
 {
-    pub fn parse<'s>(s: &'s str) -> Result<(&'s str, Ship<char>), &'s str> {
+    pub fn parse<'s>(s: &'s str) -> Result<(&'s str, Ship<T>), &'s str> {
         log::debug!("parse tank : {} ... ({})", s, s.len());
         //let width = None;
         let mut rest = s;
         let mut content = vec![];
         let mut width = None;
         loop {
-            let cells: Line;
+            let cells: Line<T>;
             (rest, cells) = Line::parse(rest)?;
             match cells {
                 Line::Content(c) => {
@@ -121,24 +128,29 @@ where
                     if !check_consistency(&mut width, c.len()) {
                         return Err("Varrying width of ship stacks detected :(");
                     }
-                    let chars = c
-                        .iter()
-                        .map(Cell::extract_char)
-                        .collect::<Vec<Option<char>>>();
-                    content.push(chars);
+                    let values = c
+                        .into_iter()
+                        .map(Cell::extract_value)
+                        .collect::<Vec<Option<T>>>();
+                    content.push(values);
                 }
                 Line::Abscissa(indexes) => {
                     log::debug!("parse tank : indexes found");
                     assert_eq!(indexes.len(), width.unwrap());
-                    assert!(indexes
-                        .iter()
-                        .enumerate()
-                        .map(|(i, v)| v == &Cell::Index((i + 1) as u8))
-                        .fold(true, |acc, ok| acc && ok));
+                    assert!(
+                        indexes
+                            .iter()
+                            .enumerate()
+                            .map(|(i, v)| {
+                                let idx = (i + 1) as u8;
+                                matches!(v, Cell::Index(idx))
+                            }) // v == &Cell::Index((i + 1) as u8))
+                            .fold(true, |acc, ok| acc && ok),
+                        "indexes aren't following each others"
+                    );
                     break;
                 }
                 _ => {
-                    log::error!("Parsing ship tank failed on cell {:?}", cells);
                     return Err("Line Cells error");
                 }
             }
@@ -148,65 +160,15 @@ where
         let mut ship = Ship::new_empty_ship(width);
 
         content.reverse();
-        content.iter().for_each(|vector| {
-            log::debug!("{:?}", vector);
-            for i in 0..width {
-                vector[i].map(|value| ship.push_at_top_of_stack(i, value));
+        content.iter_mut().for_each(|vector| {
+            for col in 0..width {
+                vector
+                    .pop()
+                    .flatten()
+                    .map(|value| ship.push_at_top_of_stack(width - (col + 1), value));
             }
         });
         // ship tank parsed
         Ok((rest, ship))
     }
-}
-
-pub fn parse_tank<'s>(s: &'s str) -> Result<Ship<char>, &'s str> {
-    log::debug!("parse tank : {} ... ({})", s, s.len());
-    //let width = None;
-    let mut rest = s;
-    let mut content = vec![];
-    let mut width = None;
-    loop {
-        let cells: Line;
-        (rest, cells) = Line::parse(rest)?;
-        match cells {
-            Line::Content(c) => {
-                log::debug!("parse tank : content found");
-                if !check_consistency(&mut width, c.len()) {
-                    return Err("Varrying width of ship stacks detected :(");
-                }
-                let chars = c
-                    .iter()
-                    .map(Cell::extract_char)
-                    .collect::<Vec<Option<char>>>();
-                content.push(chars);
-            }
-            Line::Abscissa(indexes) => {
-                log::debug!("parse tank : indexes found");
-                assert_eq!(indexes.len(), width.unwrap());
-                assert!(indexes
-                    .iter()
-                    .enumerate()
-                    .map(|(i, v)| v == &Cell::Index((i + 1) as u8))
-                    .fold(true, |acc, ok| acc && ok));
-                break;
-            }
-            _ => {
-                log::error!("Parsing ship tank failed on cell {:?}", cells);
-                return Err("Line Cells error");
-            }
-        }
-    }
-    let width = width.unwrap();
-
-    let mut ship = Ship::new_empty_ship(width);
-
-    content.reverse();
-    content.iter().for_each(|vector| {
-        log::debug!("{:?}", vector);
-        for i in 0..width {
-            vector[i].map(|value| ship.push_at_top_of_stack(i, value));
-        }
-    });
-    // ship tank parsed
-    Ok(ship)
 }

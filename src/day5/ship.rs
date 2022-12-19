@@ -1,6 +1,9 @@
 use std::{borrow::Cow, fmt::Display, str::FromStr};
 
-use crate::parse::ship::parse_tank;
+use crate::{
+    charables::{ToChar, TryFromChar},
+    parse::instruction::Instruction,
+};
 
 pub type Stack<T> = Vec<T>;
 
@@ -8,17 +11,16 @@ pub struct Ship<T> {
     internal: Vec<Stack<T>>,
 }
 
-impl<T> Ship<T> {
-    pub fn parse_tank(s: &str) -> Result<Ship<char>, &str> {
-        parse_tank(s)
-    }
-}
-
-impl FromStr for Ship<char> {
+impl<T> FromStr for Ship<T>
+where
+    T: TryFromChar + Clone,
+{
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse_tank(s).map_err(|s| s.to_string())
+        Ship::parse(s)
+            .map(|(_, ship)| ship)
+            .map_err(|s| s.to_string())
     }
 }
 
@@ -34,34 +36,34 @@ impl<T> Ship<T> {
     }
 
     pub fn push_at_top_of_stack(&mut self, pos: usize, value: T) -> &mut Self {
-        assert!(self.internal.len() > pos);
+        assert!(
+            self.internal.len() > pos,
+            "len = {}, pushing in [{}]",
+            self.internal.len(),
+            pos
+        );
         self.internal[pos].push(value);
         self
     }
-}
 
-trait ToChar {
-    fn to_char(&self) -> char;
-}
-
-impl ToChar for char {
-    fn to_char(&self) -> char {
-        *self
+    pub fn execute(&mut self, inst: Instruction) {
+        let machine_idx = |human_idx| human_idx - 1;
+        for _ in 0..inst.repeat {
+            let pop = self.internal[machine_idx(inst.from)].pop();
+            pop.map(|v| self.internal[machine_idx(inst.to)].push(v));
+        }
     }
 }
 
-impl ToChar for usize {
-    fn to_char(&self) -> char {
-        match *self {
-            0..=9 => (('0' as u32 + *self as u32) as u8) as char,
-            10 => 'a',
-            11 => 'b',
-            12 => 'c',
-            13 => 'd',
-            14 => 'e',
-            15 => 'f',
-            _ => '+'
-        }
+impl<T> Ship<T> where T: ToChar {
+    pub fn tops_values_as_string(&self) -> String {
+        self.internal
+            .iter()
+            .map(|vector| vector.last().map(T::to_char))
+            .filter(Option::is_some)
+            .fold("".to_string(), |acc, cur| {
+                format!("{}{}", acc, cur.unwrap())
+            })
     }
 }
 
@@ -75,7 +77,11 @@ where
         let width = self.internal.len();
 
         let get_repr_of = |v: &Vec<T>, i| match v.get(i) {
-            Some(c) => Cow::from(['[', <T as ToChar>::to_char(c), ']'].into_iter().collect::<String>()),
+            Some(c) => Cow::from(
+                ['[', <T as ToChar>::to_char(c), ']']
+                    .into_iter()
+                    .collect::<String>(),
+            ),
             None => Cow::from("   "),
         };
 
