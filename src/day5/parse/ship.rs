@@ -1,4 +1,4 @@
-use crate::ship::Ship;
+use crate::ship::{Ship, ToChar};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Cell {
@@ -102,6 +102,63 @@ where
     base.get_or_insert(next_val) == &next_val
 }
 
+impl<T> Ship<T>
+where
+    T: ToChar,
+{
+    pub fn parse<'s>(s: &'s str) -> Result<(&'s str, Ship<char>), &'s str> {
+        log::debug!("parse tank : {} ... ({})", s, s.len());
+        //let width = None;
+        let mut rest = s;
+        let mut content = vec![];
+        let mut width = None;
+        loop {
+            let cells: Line;
+            (rest, cells) = Line::parse(rest)?;
+            match cells {
+                Line::Content(c) => {
+                    log::debug!("parse tank : content found");
+                    if !check_consistency(&mut width, c.len()) {
+                        return Err("Varrying width of ship stacks detected :(");
+                    }
+                    let chars = c
+                        .iter()
+                        .map(Cell::extract_char)
+                        .collect::<Vec<Option<char>>>();
+                    content.push(chars);
+                }
+                Line::Abscissa(indexes) => {
+                    log::debug!("parse tank : indexes found");
+                    assert_eq!(indexes.len(), width.unwrap());
+                    assert!(indexes
+                        .iter()
+                        .enumerate()
+                        .map(|(i, v)| v == &Cell::Index((i + 1) as u8))
+                        .fold(true, |acc, ok| acc && ok));
+                    break;
+                }
+                _ => {
+                    log::error!("Parsing ship tank failed on cell {:?}", cells);
+                    return Err("Line Cells error");
+                }
+            }
+        }
+        let width = width.unwrap();
+
+        let mut ship = Ship::new_empty_ship(width);
+
+        content.reverse();
+        content.iter().for_each(|vector| {
+            log::debug!("{:?}", vector);
+            for i in 0..width {
+                vector[i].map(|value| ship.push_at_top_of_stack(i, value));
+            }
+        });
+        // ship tank parsed
+        Ok((rest, ship))
+    }
+}
+
 pub fn parse_tank<'s>(s: &'s str) -> Result<Ship<char>, &'s str> {
     log::debug!("parse tank : {} ... ({})", s, s.len());
     //let width = None;
@@ -135,8 +192,8 @@ pub fn parse_tank<'s>(s: &'s str) -> Result<Ship<char>, &'s str> {
             }
             _ => {
                 log::error!("Parsing ship tank failed on cell {:?}", cells);
-                return Err("Line Cells error")
-            },
+                return Err("Line Cells error");
+            }
         }
     }
     let width = width.unwrap();
