@@ -1,77 +1,26 @@
-/*
-Vmjqjpqmgbljsphdztnvjfqwrcgsmlb
-
-After the first three characters (mjq) have been received, there haven't been enough characters received yet to find the marker. The first time a marker could occur is after the fourth character is received, making the most recent four characters mjqj. Because j is repeated, this isn't a marker.
-
-The first time a marker appears is after the seventh character arrives. Once it does, the last four characters received are jpqm, which are all different. In this case, your subroutine should report the value 7, because the first start-of-packet marker is complete after 7 characters have been processed.
-
-Here are a few more examples:
-
-    bvwbjplbgvbhsrlpgdmjqwftvncz: first marker after character 5
-    nppdvjthqldpwncqszvftbrmjlhg: first marker after character 6
-    nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg: first marker after character 10
-    zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw: first marker after character 11
-
- */
-
-const TEST5: &str = "bvwbjplbgvbhsrlpgdmjqwftvncz";
-const MINI: &str = "ab";
-
 use std::fs::read_to_string;
 
 fn main() -> std::io::Result<()> {
-    let _data_string = read_to_string("./data/day6.dat")?;
-
-    // let s = &data_string;
-    let s = TEST5;
-    let b = TEST5.as_bytes();
-
-    for n in 0..7 {
-        cross_myself(&TEST5[0..n].chars().collect::<Vec<char>>());
-        println!("\n");
+    let data = read_to_string("./data/day6.dat")?;
+    match find_message_index(&data, 14) {
+        Some((start, end, seq)) => println!(
+            "Index of sequence : {:?}\nIndex of message : {:?}\nSequence: {:?}",
+            start, end, seq
+        ),
+        None => println!("Not found"),
     }
-
-    println!("{:?}", b);
-    let r = s
-        .as_bytes()
-        .windows(4)
-        .enumerate()
-        // .find(|(i, w)| (w[0] != w[1] && w[1] != w[2] && w[2] != w[3] && w[3] != w[0] && w[0] != w[2] && w[1] != w[3]);
-        .find(|(i, w)| {
-            let a = w
-                .iter()
-                .map(|i| w.iter().filter(move |j| &i != j).map(move |j| (i, j)))
-                .flatten()
-                .find(|(x, y)| {
-                    println!("x({}) != y({}) => {}", x, y, x != y);
-
-                    x != y
-                })
-                .is_none();
-            let b = w[0] != w[1]
-                && w[1] != w[2]
-                && w[2] != w[3]
-                && w[3] != w[0]
-                && w[0] != w[2]
-                && w[1] != w[3];
-            a
-        });
-
-    dbg!(r);
-    println!("Index of seq start : {:?}", r.expect("err").0 + 4);
-
     Ok(())
 }
 
-/* fn cross_items<'t, I, T>(list: I) -> () where I: Iterator<Item=&'t T>, T: Debug + 't {
-fn cross_items<'t, I, T>(list: I) -> () where I: IntoIterator<Item=&'t T>, T: Debug + 't {
-    let i = list.into_iter();
-    i.for_each(|v| println!("{:?}", &v));
-    // (&list).iter().enumerate().flat_map(|(i, x)| list.enumerate()).map(|p| dbg!(p));
-
-        //.skip(1).filter(|(i, _), (j, _)| && j > i);
-    ()
-} */
+fn find_message_index(s: &str, start_seq_size: usize) -> Option<(usize, usize, &[u8])> {
+    let sequence_found: Option<(usize, &[u8])> = s
+        .as_bytes()
+        .windows(start_seq_size)
+        .enumerate()
+        // .find(|(i, w)| (w[0] != w[1] && w[1] != w[2] && w[2] != w[3] && w[3] != w[0] && w[0] != w[2] && w[1] != w[3]);
+        .find(|(_, w)| !has_duplicate(w));
+    sequence_found.map(|(seq_idx, seq)| (seq_idx, seq_idx + start_seq_size, seq))
+}
 
 fn cross_myself<T>(list: &[T]) -> Vec<(&T, &T)>
 where
@@ -82,12 +31,74 @@ where
         acc += l - 1;
     }
     let mut vec = Vec::with_capacity(acc);
-    println!("sizeis {}", acc);
     for (i, x) in list.iter().enumerate() {
-        for (j, y) in list[..i].iter().enumerate() {
+        for (_, y) in list[..i].iter().enumerate() {
             vec.push((x, y));
-            println!("({},{}): <{:?},{:?}>", i, j, x, y);
         }
     }
     vec
+}
+
+fn has_duplicate<T>(list: &[T]) -> bool
+where
+    T: PartialEq + std::fmt::Debug,
+{
+    cross_myself(list).iter().find(|(x, y)| x == y).is_some()
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{cross_myself, find_message_index, has_duplicate};
+
+    #[test]
+    fn validate_has_duplicate_for_w4() {
+        const TEST: &str = "bvwbjplbgvbhsrlpgdmjqwftvncz";
+        let has_no_dup_4_window = |w: &[u8]| {
+            w[0] != w[1]
+                && w[1] != w[2]
+                && w[2] != w[3]
+                && w[3] != w[0]
+                && w[0] != w[2]
+                && w[1] != w[3]
+        };
+
+        TEST.as_bytes()
+            .windows(4)
+            .map(|c| {
+                println!("{:?}", c);
+                cross_myself(c).iter().for_each(|(l, r)| {
+                    println!("{}-{}", l, r);
+                });
+                c
+            })
+            .for_each(|window4| assert_eq!(has_duplicate(window4), !has_no_dup_4_window(window4)))
+    }
+
+    #[test]
+    fn part_1_aoc_4chars() {
+        const T1: (&str, usize) = ("bvwbjplbgvbhsrlpgdmjqwftvncz", 5);
+        const T2: (&str, usize) = ("nppdvjthqldpwncqszvftbrmjlhg", 6);
+        const T3: (&str, usize) = ("nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg", 10);
+        const T4: (&str, usize) = ("zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw", 11);
+
+        assert_eq!(find_message_index(T1.0, 4).map(|v| v.1), Some(T1.1));
+        assert_eq!(find_message_index(T2.0, 4).map(|v| v.1), Some(T2.1));
+        assert_eq!(find_message_index(T3.0, 4).map(|v| v.1), Some(T3.1));
+        assert_eq!(find_message_index(T4.0, 4).map(|v| v.1), Some(T4.1));
+    }
+
+    #[test]
+    fn part_2_aoc_14chars() {
+        let tests: Vec<(&str, usize)> = vec![
+            ("mjqjpqmgbljsphdztnvjfqwrcgsmlb", 19),
+            ("bvwbjplbgvbhsrlpgdmjqwftvncz", 23),
+            ("nppdvjthqldpwncqszvftbrmjlhg", 23),
+            ("nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg", 29),
+            ("zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw", 26),
+        ];
+
+        for test in tests {
+            assert_eq!(find_message_index(test.0, 14).map(|v| v.1), Some(test.1));
+        }
+    }
 }
