@@ -12,7 +12,7 @@ enum Action {
 
 impl Action {
     fn parse<'s>(input: &'s str) -> Result<(&'s str, Self), String> {
-        let (mut line, rest) = input.split_once(' ').unwrap_or((input, ""));
+        let (line, rest) = input.split_once(' ').unwrap_or((input, ""));
         match line {
             "move" => Ok((rest, Action::Move)),
             _ => Err(format!("unknown action <{}>", line)),
@@ -28,7 +28,7 @@ enum Dir {
 
 impl Dir {
     fn parse<'s>(input: &'s str) -> Result<(&'s str, Self), String> {
-        let (mut word, rest) = input.split_once(' ').unwrap_or((input, ""));
+        let (word, rest) = input.split_once(' ').unwrap_or((input, ""));
         match word {
             "from" => Ok((rest, Self::From)),
             "to" => Ok((rest, Self::To)),
@@ -42,17 +42,14 @@ pub fn parse_usize<'s>(input: &'s str) -> Result<(&'s str, usize), String> {
 }
 
 fn parse_u64<'s>(input: &'s str) -> Result<(&'s str, u64), String> {
-    dbg!(input);
     let (nb_str_len, value) = input
         .chars()
         .take_while(|c| c.is_digit(10))
         .map(|c| c.to_digit(10).expect("invalid digit") as u64)
         .enumerate()
         .fold((0_usize, 0_u64), |(_, total), (index, digit)| {
-            dbg!(total, index, digit);
             (index + 1, total * 10 + digit)
         });
-    dbg!(value);
     if input.chars().nth(nb_str_len) == Some(' ') {
         Ok((&input[(nb_str_len + 1)..], value))
     } else {
@@ -70,8 +67,6 @@ impl Instruction {
     }
 
     pub fn parse<'s>(input: &'s str) -> Result<(&'s str, Self), String> {
-        let qty: usize;
-
         let mut from = None;
         let mut to = None;
         let mut set_dir_val = |dir, val| {
@@ -95,9 +90,5 @@ impl Instruction {
         let to = to.ok_or("no destination value provided".to_string())?;
 
         Ok((rest, Instruction::new(qty, from, to)))
-    }
-
-    fn parse_line<'s>(line: &'s str) -> Result<(&'s str, Instruction), String> {
-        Ok((line, Instruction::new(0, 0, 0)))
     }
 }

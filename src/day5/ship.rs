@@ -55,6 +55,12 @@ impl<T> Ship<T> {
         }
         */
         let src_len = self.internal[machine_idx(inst.from)].len();
+        assert!(
+            src_len >= inst.by,
+            "Crane 9001 trying to lift {} whereas there are only {}",
+            inst.by,
+            src_len
+        );
         let poped_vec = self.internal[machine_idx(inst.from)].split_off(src_len - inst.by);
         poped_vec
             .into_iter()

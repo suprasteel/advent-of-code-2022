@@ -13,7 +13,7 @@ use crate::parse::{instruction::Instruction, skip_whitespace};
 
 fn main() -> std::io::Result<()> {
     let data_string = read_to_string("./data/day5.dat")?;
-    simple_logger::init_with_level(log::Level::Debug).unwrap();
+    simple_logger::init_with_level(log::Level::Info).unwrap();
     let (rest, mut ship) = Ship::<char>::parse(&data_string).expect("parsing err");
     dbg!(ship.to_string());
 
