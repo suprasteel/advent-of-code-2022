@@ -40,6 +40,7 @@ fn main() -> std::io::Result<()> {
     }
 
     for instruction in instructions {
+        println!("{}", ship);
         dbg!(&instruction);
         ship.execute(instruction);
     }

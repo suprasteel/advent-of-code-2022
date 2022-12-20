@@ -48,14 +48,24 @@ impl<T> Ship<T> {
 
     pub fn execute(&mut self, inst: Instruction) {
         let machine_idx = |human_idx| human_idx - 1;
-        for _ in 0..inst.repeat {
+        /* day5 part 1
+        for _ in 0..inst.by {
             let pop = self.internal[machine_idx(inst.from)].pop();
             pop.map(|v| self.internal[machine_idx(inst.to)].push(v));
         }
+        */
+        let src_len = self.internal[machine_idx(inst.from)].len();
+        let poped_vec = self.internal[machine_idx(inst.from)].split_off(src_len - inst.by);
+        poped_vec
+            .into_iter()
+            .for_each(|elt| self.internal[machine_idx(inst.to)].push(elt));
     }
 }
 
-impl<T> Ship<T> where T: ToChar {
+impl<T> Ship<T>
+where
+    T: ToChar,
+{
     pub fn tops_values_as_string(&self) -> String {
         self.internal
             .iter()

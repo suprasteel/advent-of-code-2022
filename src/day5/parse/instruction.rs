@@ -1,6 +1,6 @@
 #[derive(Debug, PartialEq)]
 pub struct Instruction {
-    pub(crate) repeat: usize,
+    pub(crate) by: usize,
     pub(crate) from: usize,
     pub(crate) to: usize,
 }
@@ -62,7 +62,11 @@ fn parse_u64<'s>(input: &'s str) -> Result<(&'s str, u64), String> {
 
 impl Instruction {
     pub fn new(repeat: usize, from: usize, to: usize) -> Self {
-        Self { repeat, from, to }
+        Self {
+            by: repeat,
+            from,
+            to,
+        }
     }
 
     pub fn parse<'s>(input: &'s str) -> Result<(&'s str, Self), String> {
