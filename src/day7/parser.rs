@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fmt::Display, path::PathBuf};
 
 use nom::{
     branch::alt,
@@ -123,6 +123,19 @@ pub(crate) enum Cmd {
     Cd { arg: Directory },
 }
 
+impl Display for Cmd {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Cmd::Ls { ret } => format!("ls returns {} fils and dirs", ret.len()),
+                Cmd::Cd { arg } => format!("cd to directory {}", arg.name.to_str().unwrap_or("")),
+            }
+        )
+    }
+}
+
 pub(crate) fn ls(input: &str) -> IResult<&str, Vec<Node>> {
     preceded(tag("ls"), nodes)(input)
 }
@@ -175,5 +188,6 @@ pub(crate) fn terminal(input: &str) -> IResult<&str, Vec<Cmd>> {
 #[test]
 fn count_commands_of_parsed_terminal() {
     let cmds = terminal(T_OUT).unwrap().1;
-    assert_eq!(cmds.len(), 9)
+    cmds.iter().for_each(|n| println!("{}", n));
+    assert_eq!(cmds.len(), 10)
 }

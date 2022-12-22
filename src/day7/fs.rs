@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fmt::Display, path::PathBuf};
 
 #[derive(Debug)]
 pub struct File {
@@ -97,6 +97,16 @@ impl DiskSize for Node {
             Node::F(f) => f.size(),
             Node::D(d) => d.size(),
         }
+    }
+}
+
+impl Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let content = match self {
+            Node::F(f) => format!("{} (file, {})", f.name.to_str().unwrap_or(""), f.size()),
+            Node::D(d) => format!("{} (dir)", d.name.to_str().unwrap_or("")),
+        };
+        write!(f, "- {}", content)
     }
 }
 
