@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_while},
+    bytes::complete::{tag, take_while1},
     character::complete::{char, digit1, line_ending},
     combinator::{map, map_res},
     multi::many0,
@@ -12,9 +12,9 @@ use nom::{
 
 use crate::fs::{Directory, DiskSize, File, Node};
 
-fn path(input: &str) -> IResult<&str, PathBuf> {
+pub(crate) fn path(input: &str) -> IResult<&str, PathBuf> {
     map(
-        take_while(|c: char| match c as u8 {
+        take_while1(|c: char| match c as u8 {
             b'a'..=b'z' => true,
             b'A'..=b'Z' => true,
             b'_' | b'-' | b'/' | b'.' => true,
@@ -30,7 +30,14 @@ fn parse_path() {
     assert_eq!(PathBuf::from(input), path(input).unwrap().1);
 }
 
-fn usize(input: &str) -> IResult<&str, usize> {
+#[test]
+#[should_panic]
+fn parse_path_fails_if_empty() {
+    let input = "";
+    assert!(path(input).unwrap().1 == PathBuf::from("")); // should panic on unwrap
+}
+
+pub(crate) fn usize(input: &str) -> IResult<&str, usize> {
     map_res(digit1, |b: &str| b.parse::<usize>())(input)
 }
 
@@ -40,7 +47,7 @@ fn parse_usize() {
     assert_eq!(99, usize(input).unwrap().1);
 }
 
-fn file(input: &str) -> IResult<&str, File> {
+pub(crate) fn file(input: &str) -> IResult<&str, File> {
     map(separated_pair(usize, char(' '), path), |(size, name)| {
         File::new(name, size)
     })(input)
@@ -55,7 +62,7 @@ fn parse_file() {
     );
 }
 
-fn file_node(input: &str) -> IResult<&str, Node> {
+pub(crate) fn file_node(input: &str) -> IResult<&str, Node> {
     map(file, |file| file.into())(input)
 }
 
@@ -65,7 +72,7 @@ fn parse_file_node() {
     assert_eq!(14848514, file_node(input).map(|(_, f)| (f.size())).unwrap());
 }
 
-fn dir(input: &str) -> IResult<&str, Directory> {
+pub(crate) fn dir(input: &str) -> IResult<&str, Directory> {
     let parser = separated_pair(tag("dir"), char(' '), path);
     map(parser, |(_, path)| Directory::new(path))(input)
 }
@@ -76,7 +83,7 @@ fn parse_dir() {
     assert_eq!(Directory::new("dirname").name, dir(input).unwrap().1.name);
 }
 
-fn dir_node(input: &str) -> IResult<&str, Node> {
+pub(crate) fn dir_node(input: &str) -> IResult<&str, Node> {
     map(dir, |d| d.into())(input)
 }
 
@@ -86,7 +93,7 @@ fn parse_dir_node() {
     assert_eq!(0, dir_node(input).map(|(_, f)| (f.size())).unwrap());
 }
 
-fn nodes(input: &str) -> IResult<&str, Vec<Node>> {
+pub(crate) fn nodes(input: &str) -> IResult<&str, Vec<Node>> {
     many0(terminated(alt((file_node, dir_node)), line_ending))(input)
 }
 
@@ -107,12 +114,12 @@ fn parse_nodes() {
     assert_eq!(14942783 + 1100, parent.size());
 }
 
-enum Cmd {
+pub(crate) enum Cmd {
     Ls { ret: Vec<Node> },
     Cd { arg: Directory },
 }
 
-fn ls(input: &str) -> IResult<&str, Vec<Node>> {
+pub(crate) fn ls(input: &str) -> IResult<&str, Vec<Node>> {
     preceded(tag("ls\n"), nodes)(input)
 }
 
@@ -131,7 +138,7 @@ fn parse_ls_empty() {
     assert!(ls(input).unwrap().1.is_empty());
 }
 
-fn cd(input: &str) -> IResult<&str, Directory> {
+pub(crate) fn cd(input: &str) -> IResult<&str, Directory> {
     preceded(tag("cd "), map(path, |pb| Directory::new(pb)))(input)
 }
 
