@@ -1,25 +1,17 @@
 #[cfg(test)]
 mod test;
 
-fn main() {
+mod fs;
 
-    // TODO: 
+fn main() {
+    // TODO:
     // - parsing with nom
     // - handmade tree structure fun fun and practise
 }
 
-struct File {
-    name: String,
-    size: usize,
+
+/*
+fn hello_parser(i: &str) -> nom::IResult<&str, &str> {
+    nom::bytes::complete::tag("hello")(i)
 }
-
-struct Dir {
-    name: String,
-}
-
-enum FsNode {
-    File(File),
-    Dir(Dir),
-}
-
-
+*/
