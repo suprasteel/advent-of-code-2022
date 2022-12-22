@@ -1,15 +1,16 @@
 use std::path::PathBuf;
 
 use nom::{
+    branch::alt,
     bytes::complete::{tag, take_while},
     character::complete::{char, digit1, line_ending},
     combinator::{map, map_res},
     multi::many0,
-    sequence::{separated_pair, terminated},
+    sequence::{preceded, separated_pair, terminated},
     IResult,
 };
 
-use crate::fs::{Directory, File, Node};
+use crate::fs::{Directory, DiskSize, File, Node};
 
 fn path(input: &str) -> IResult<&str, PathBuf> {
     map(
@@ -54,6 +55,16 @@ fn parse_file() {
     );
 }
 
+fn file_node(input: &str) -> IResult<&str, Node> {
+    map(file, |file| file.into())(input)
+}
+
+#[test]
+fn parse_file_node() {
+    let input = "14848514 b.txt";
+    assert_eq!(14848514, file_node(input).map(|(_, f)| (f.size())).unwrap());
+}
+
 fn dir(input: &str) -> IResult<&str, Directory> {
     let parser = separated_pair(tag("dir"), char(' '), path);
     map(parser, |(_, path)| Directory::new(path))(input)
@@ -65,60 +76,74 @@ fn parse_dir() {
     assert_eq!(Directory::new("dirname").name, dir(input).unwrap().1.name);
 }
 
-fn dir_or_file(input: &str) -> IResult<&str, Vec<Node>> {
-    
-}
-
-// -> Change to node
-fn files_with_size(input: &str) -> IResult<&str, Vec<File>> {
-    many0(terminated(file, line_ending))(input)
+fn dir_node(input: &str) -> IResult<&str, Node> {
+    map(dir, |d| d.into())(input)
 }
 
 #[test]
-fn parse_files_with_size() {
-    let input = "14848514 b.txt\n29116 f\n2557 g\n62596 h.lst\n";
-    assert_eq!(
-        vec![
-            (14848514, PathBuf::from("b.txt")),
-            (29116, "f".into()),
-            (2557, "g".into()),
-            (62596, "h.lst".into())
-        ],
-        files_with_size(input).unwrap().1
-    );
+fn parse_dir_node() {
+    let input = "dir dirname";
+    assert_eq!(0, dir_node(input).map(|(_, f)| (f.size())).unwrap());
+}
+
+fn nodes(input: &str) -> IResult<&str, Vec<Node>> {
+    many0(terminated(alt((file_node, dir_node)), line_ending))(input)
+}
+
+#[test]
+fn parse_nodes() {
+    let input = "14848514 b.txt\n29116 f\n2557 g\n62596 h.lst\n"; // sum is 14942783
+    let files = nodes(input).unwrap().1;
+    let mut parent = Directory::new("test");
+    for f in files {
+        parent.push(f);
+    }
+    assert_eq!(14942783, parent.size());
+
+    let mut d2 = Directory::new("d2");
+    d2.push(File::new("fa", 100)).push(File::new("fb", 1000));
+    parent.push(d2);
+
+    assert_eq!(14942783 + 1100, parent.size());
 }
 
 enum Cmd {
-    Ls { files: (usize, PathBuf) },
-    Cd { path: PathBuf },
+    Ls { ret: Vec<Node> },
+    Cd { arg: Directory },
 }
 
-fn cmd(input: &str) -> IResult<&str, Cmd> {}
-
-fn parse_ls(i: &str) -> IResult<&str, Cmd> {
-    map(tag("ls"), |_| Ls)(i)
+fn ls(input: &str) -> IResult<&str, Vec<Node>> {
+    preceded(tag("ls\n"), nodes)(input)
 }
 
-fn parse_ls_out(i: &str) -> IResult<&str, Ls> {
-    map(tag("ls"), |_| Ls)(i)
+#[test]
+fn parse_ls() {
+    let input = "ls\n14848514 b.txt\n29116 f\n2557 g\n62596 h.lst\n"; // sum is 14942783
+    let nodes = ls(input).unwrap().1;
+    let size_sum = nodes.iter().fold(0_usize, |sum, n| sum + n.size());
+    assert_eq!(size_sum, 14942783);
 }
 
-/*
-#[derive(Debug)]
-struct Cd(Utf8PathBuf);
-
-fn parse_cd(i: &str) -> IResult<&str, Cd> {
-    map(preceded(tag("cd "), parse_path), Cd)(i)
+#[test]
+fn parse_ls_empty() {
+    let input = "ls\n"; // sum is 14942783
+    assert!(ls(input).is_ok());
+    assert!(ls(input).unwrap().1.is_empty());
 }
 
-#[derive(Debug)]
-enum Command {
-    Ls(Ls),
-    Cd(Cd),
+fn cd(input: &str) -> IResult<&str, Directory> {
+    preceded(tag("cd "), map(path, |pb| Directory::new(pb)))(input)
 }
 
-fn parse_cmd(i: &str) -> IResult<&str, Command> {
-let (i, _) = tag("$ ")(i)?;
-alt((map(parse_ls, Command::Ls), map(parse_cd, Command::Cd)))(i)
+#[test]
+fn parse_cd() {
+    let input = "cd directory_x"; // sum is 14942783
+    assert!(cd(input).unwrap().1.name == PathBuf::from("directory_x"));
 }
-*/
+
+fn command(input: &str) -> IResult<&str, Cmd> {
+    alt((
+        map(ls, |nodes| Cmd::Ls { ret: nodes }),
+        map(cd, |dir| Cmd::Cd { arg: dir }),
+    ))(input)
+}

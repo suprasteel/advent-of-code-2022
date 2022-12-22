@@ -46,7 +46,7 @@ impl Directory {
         }
     }
 
-    fn push<T>(&mut self, node: T) -> &mut Self
+    pub fn push<T>(&mut self, node: T) -> &mut Self
     where
         T: Into<Node>,
     {
@@ -60,7 +60,18 @@ pub enum Node {
     D(Directory),
 }
 
-trait DiskSize {
+/*
+impl Node {
+    fn name(&self) -> &str {
+        match self {
+            Self::F(f) => f.name.into(),
+            Self::D(d) => d.path.as_ref(),
+        }
+    }
+}
+*/
+
+pub trait DiskSize {
     fn size(&self) -> usize;
 }
 
