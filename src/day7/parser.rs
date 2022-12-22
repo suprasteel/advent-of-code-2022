@@ -12,6 +12,9 @@ use nom::{
 
 use crate::fs::{Directory, DiskSize, File, Node};
 
+#[cfg(test)]
+use crate::test::T_OUT;
+
 pub(crate) fn path(input: &str) -> IResult<&str, PathBuf> {
     map(
         take_while1(|c: char| match c as u8 {
@@ -94,12 +97,12 @@ fn parse_dir_node() {
 }
 
 pub(crate) fn nodes(input: &str) -> IResult<&str, Vec<Node>> {
-    many0(terminated(alt((file_node, dir_node)), line_ending))(input)
+    many0(preceded(line_ending, alt((file_node, dir_node))))(input)
 }
 
 #[test]
 fn parse_nodes() {
-    let input = "14848514 b.txt\n29116 f\n2557 g\n62596 h.lst\n"; // sum is 14942783
+    let input = "\n14848514 b.txt\n29116 f\n2557 g\n62596 h.lst\n"; // sum is 14942783
     let files = nodes(input).unwrap().1;
     let mut parent = Directory::new("test");
     for f in files {
@@ -114,13 +117,14 @@ fn parse_nodes() {
     assert_eq!(14942783 + 1100, parent.size());
 }
 
+#[derive(Debug)]
 pub(crate) enum Cmd {
     Ls { ret: Vec<Node> },
     Cd { arg: Directory },
 }
 
 pub(crate) fn ls(input: &str) -> IResult<&str, Vec<Node>> {
-    preceded(tag("ls\n"), nodes)(input)
+    preceded(tag("ls"), nodes)(input)
 }
 
 #[test]
@@ -133,7 +137,7 @@ fn parse_ls() {
 
 #[test]
 fn parse_ls_empty() {
-    let input = "ls\n"; // sum is 14942783
+    let input = "ls"; // sum is 14942783
     assert!(ls(input).is_ok());
     assert!(ls(input).unwrap().1.is_empty());
 }
@@ -148,9 +152,28 @@ fn parse_cd() {
     assert!(cd(input).unwrap().1.name == PathBuf::from("directory_x"));
 }
 
-fn command(input: &str) -> IResult<&str, Cmd> {
-    alt((
-        map(ls, |nodes| Cmd::Ls { ret: nodes }),
-        map(cd, |dir| Cmd::Cd { arg: dir }),
-    ))(input)
+pub(crate) fn command(input: &str) -> IResult<&str, Cmd> {
+    preceded(
+        tag("$ "),
+        alt((
+            map(ls, |nodes| Cmd::Ls { ret: nodes }),
+            map(cd, |dir| Cmd::Cd { arg: dir }),
+        )),
+    )(input)
+}
+
+#[test]
+fn parse_command() {
+    let input = "cd directory_x"; // sum is 14942783
+    assert!(cd(input).unwrap().1.name == PathBuf::from("directory_x"));
+}
+
+pub(crate) fn terminal(input: &str) -> IResult<&str, Vec<Cmd>> {
+    many0(terminated(command, line_ending))(input)
+}
+
+#[test]
+fn count_commands_of_parsed_terminal() {
+    let cmds = terminal(T_OUT).unwrap().1;
+    assert_eq!(cmds.len(), 9)
 }

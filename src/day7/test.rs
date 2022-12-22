@@ -1,4 +1,6 @@
-const T_OUT: &str = r#"$ cd /
+use crate::parser;
+
+pub const T_OUT: &str = r#"$ cd /
 $ ls
 dir a
 14848514 b.txt
@@ -55,8 +57,7 @@ fn traverse_filesystem_tree() {
     let incr_count = || {
         count += 1;
     };
-    // assert that a a traverse fn on the Fs_tree
-    // ft = new FsTree(/* FS_TREE tree */)
-    // ft.traverse(incr_count);
+    let commands = parser::terminal(T_OUT);
+
     assert_eq!(count, 13);
 }

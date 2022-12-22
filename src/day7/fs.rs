@@ -24,6 +24,7 @@ impl Into<Node> for File {
     }
 }
 
+#[derive(Debug)]
 pub struct Directory {
     pub(crate) name: PathBuf,
     children: Vec<Node>,
@@ -55,6 +56,7 @@ impl Directory {
     }
 }
 
+#[derive(Debug)]
 pub enum Node {
     F(File),
     D(Directory),
