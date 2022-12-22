@@ -112,7 +112,7 @@ impl Display for Node {
 
 #[cfg(test)]
 mod test {
-    use crate::fs::DiskSize;
+    use crate::fs::{DiskSize, Node};
 
     use super::{Directory, File};
 
@@ -130,5 +130,13 @@ mod test {
         d1.push(f1).push(f2).push(d2);
 
         assert_eq!(d1.size(), 1111);
+    }
+
+    #[test]
+    fn display_node () {
+        let file = File::new("filename", 1111);
+        let dir = Directory::new("dirname");
+        assert_eq!(<File as Into<Node>>::into(file).to_string(), "- filename (file, 1111)");
+        assert_eq!(<Directory as Into<Node>>::into(dir).to_string(), "- dirname (dir)");
     }
 }
