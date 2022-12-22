@@ -1,12 +1,15 @@
+use std::path::PathBuf;
+
+#[derive(Debug)]
 pub struct File {
-    name: String,
-    size: u32,
+    pub name: PathBuf,
+    pub size: usize,
 }
 
 impl File {
-    pub fn new<S>(name: S, size: u32) -> Self
+    pub fn new<S>(name: S, size: usize) -> Self
     where
-        S: Into<String>,
+        S: Into<PathBuf>,
     {
         Self {
             name: name.into(),
@@ -22,7 +25,7 @@ impl Into<Node> for File {
 }
 
 pub struct Directory {
-    name: String,
+    pub(crate) name: PathBuf,
     children: Vec<Node>,
 }
 
@@ -35,7 +38,7 @@ impl Into<Node> for Directory {
 impl Directory {
     pub fn new<S>(name: S) -> Self
     where
-        S: Into<String>,
+        S: Into<PathBuf>,
     {
         Self {
             name: name.into(),
@@ -58,17 +61,17 @@ pub enum Node {
 }
 
 trait DiskSize {
-    fn size(&self) -> u32;
+    fn size(&self) -> usize;
 }
 
 impl DiskSize for File {
-    fn size(&self) -> u32 {
+    fn size(&self) -> usize {
         self.size
     }
 }
 
 impl DiskSize for Directory {
-    fn size(&self) -> u32 {
+    fn size(&self) -> usize {
         self.children
             .iter()
             .fold(0, |sum, child| sum + child.size())
@@ -76,7 +79,7 @@ impl DiskSize for Directory {
 }
 
 impl DiskSize for Node {
-    fn size(&self) -> u32 {
+    fn size(&self) -> usize {
         match self {
             Node::F(f) => f.size(),
             Node::D(d) => d.size(),

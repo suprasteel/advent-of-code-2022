@@ -1,8 +1,3 @@
-use nom::sequence::preceded;
-
-#[macro_use]
-extern crate derive_new;
-
 #[cfg(test)]
 mod test;
 
@@ -25,3 +20,5 @@ fn parse_dollar(i: &str) -> nom::IResult<&str, &str> {
     preceded(tag("$ "))(i)
 }
 */
+
+mod parser;
