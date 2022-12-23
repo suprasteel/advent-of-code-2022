@@ -18,21 +18,21 @@ impl File {
     }
 }
 
-impl Into<Node> for File {
-    fn into(self) -> Node {
-        Node::F(self)
+impl Into<Kind> for File {
+    fn into(self) -> Kind {
+        Kind::F(self)
     }
 }
 
 #[derive(Debug)]
 pub struct Directory {
     pub(crate) name: PathBuf,
-    children: Vec<Node>,
+    children: Vec<Kind>,
 }
 
-impl Into<Node> for Directory {
-    fn into(self) -> Node {
-        Node::D(self)
+impl Into<Kind> for Directory {
+    fn into(self) -> Kind {
+        Kind::D(self)
     }
 }
 
@@ -49,29 +49,19 @@ impl Directory {
 
     pub fn push<T>(&mut self, node: T) -> &mut Self
     where
-        T: Into<Node>,
+        T: Into<Kind>,
     {
         self.children.push(node.into());
+        // push parent self
         self
     }
 }
 
 #[derive(Debug)]
-pub enum Node {
+pub enum Kind {
     F(File),
     D(Directory),
 }
-
-/*
-impl Node {
-    fn name(&self) -> &str {
-        match self {
-            Self::F(f) => f.name.into(),
-            Self::D(d) => d.path.as_ref(),
-        }
-    }
-}
-*/
 
 pub trait DiskSize {
     fn size(&self) -> usize;
@@ -91,20 +81,20 @@ impl DiskSize for Directory {
     }
 }
 
-impl DiskSize for Node {
+impl DiskSize for Kind {
     fn size(&self) -> usize {
         match self {
-            Node::F(f) => f.size(),
-            Node::D(d) => d.size(),
+            Kind::F(f) => f.size(),
+            Kind::D(d) => d.size(),
         }
     }
 }
 
-impl Display for Node {
+impl Display for Kind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let content = match self {
-            Node::F(f) => format!("{} (file, {})", f.name.to_str().unwrap_or(""), f.size()),
-            Node::D(d) => format!("{} (dir)", d.name.to_str().unwrap_or("")),
+            Kind::F(f) => format!("{} (file, {})", f.name.to_str().unwrap_or(""), f.size()),
+            Kind::D(d) => format!("{} (dir)", d.name.to_str().unwrap_or("")),
         };
         write!(f, "- {}", content)
     }
@@ -112,7 +102,7 @@ impl Display for Node {
 
 #[cfg(test)]
 mod test {
-    use crate::fs::{DiskSize, Node};
+    use crate::fs::{DiskSize, Kind};
 
     use super::{Directory, File};
 
@@ -133,10 +123,16 @@ mod test {
     }
 
     #[test]
-    fn display_node () {
+    fn display_node() {
         let file = File::new("filename", 1111);
         let dir = Directory::new("dirname");
-        assert_eq!(<File as Into<Node>>::into(file).to_string(), "- filename (file, 1111)");
-        assert_eq!(<Directory as Into<Node>>::into(dir).to_string(), "- dirname (dir)");
+        assert_eq!(
+            <File as Into<Kind>>::into(file).to_string(),
+            "- filename (file, 1111)"
+        );
+        assert_eq!(
+            <Directory as Into<Kind>>::into(dir).to_string(),
+            "- dirname (dir)"
+        );
     }
 }

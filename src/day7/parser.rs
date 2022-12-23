@@ -10,7 +10,7 @@ use nom::{
     IResult,
 };
 
-use crate::fs::{Directory, File, Node};
+use crate::fs::{Directory, File, Kind};
 
 pub(crate) fn path(input: &str) -> IResult<&str, PathBuf> {
     map(
@@ -34,7 +34,7 @@ pub(crate) fn file(input: &str) -> IResult<&str, File> {
     })(input)
 }
 
-pub(crate) fn file_node(input: &str) -> IResult<&str, Node> {
+pub(crate) fn file_node(input: &str) -> IResult<&str, Kind> {
     map(file, |file| file.into())(input)
 }
 
@@ -42,15 +42,15 @@ pub(crate) fn dir(input: &str) -> IResult<&str, Directory> {
     let parser = separated_pair(tag("dir"), char(' '), path);
     map(parser, |(_, path)| Directory::new(path))(input)
 }
-pub(crate) fn dir_node(input: &str) -> IResult<&str, Node> {
+pub(crate) fn dir_node(input: &str) -> IResult<&str, Kind> {
     map(dir, |d| d.into())(input)
 }
-pub(crate) fn nodes(input: &str) -> IResult<&str, Vec<Node>> {
+pub(crate) fn nodes(input: &str) -> IResult<&str, Vec<Kind>> {
     many0(preceded(line_ending, alt((file_node, dir_node))))(input)
 }
 #[derive(Debug)]
 pub(crate) enum Cmd {
-    Ls { ret: Vec<Node> },
+    Ls { ret: Vec<Kind> },
     Cd { arg: Directory },
 }
 
@@ -67,7 +67,7 @@ impl Display for Cmd {
     }
 }
 
-pub(crate) fn ls(input: &str) -> IResult<&str, Vec<Node>> {
+pub(crate) fn ls(input: &str) -> IResult<&str, Vec<Kind>> {
     preceded(tag("ls"), nodes)(input)
 }
 
@@ -89,13 +89,12 @@ pub(crate) fn terminal(input: &str) -> IResult<&str, Vec<Cmd>> {
 
 #[cfg(test)]
 mod test {
-    use std::path::PathBuf;
-
     use crate::{
         fs::{Directory, DiskSize, File},
         parser::{cd, dir, dir_node, file, file_node, ls, nodes, path, usize},
-        test::T_OUT,
+        TERM,
     };
+    use std::path::PathBuf;
 
     use super::terminal;
 
@@ -120,7 +119,7 @@ mod test {
         let input = "14848514 b.txt";
         assert_eq!(
             (14848514, PathBuf::from("b.txt")),
-            file(input).map(|(r_, f)| (f.size, f.name)).unwrap()
+            file(input).map(|(_, f)| (f.size, f.name)).unwrap()
         );
     }
     #[test]
@@ -187,7 +186,7 @@ mod test {
 
     #[test]
     fn count_commands_of_parsed_terminal() {
-        let cmds = terminal(T_OUT).unwrap().1;
+        let cmds = terminal(TERM).unwrap().1;
         cmds.iter().for_each(|n| println!("{}", n));
         assert_eq!(cmds.len(), 10)
     }
