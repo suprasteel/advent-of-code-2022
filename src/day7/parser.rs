@@ -12,16 +12,17 @@ use nom::{
 
 use crate::fs::{Directory, File, Kind};
 
-pub(crate) fn path(input: &str) -> IResult<&str, PathBuf> {
-    map(
-        take_while1(|c: char| match c as u8 {
-            b'a'..=b'z' => true,
-            b'A'..=b'Z' => true,
-            b'_' | b'-' | b'/' | b'.' => true,
-            _ => false,
-        }),
-        Into::into,
-    )(input)
+pub(crate) fn path(input: &str) -> IResult<&str, &str> {
+    take_while1(|c: char| match c as u8 {
+        b'a'..=b'z' => true,
+        b'A'..=b'Z' => true,
+        b'_' | b'-' | b'/' | b'.' => true,
+        _ => false,
+    })(input)
+}
+
+pub(crate) fn pathbuf(input: &str) -> IResult<&str, PathBuf> {
+    map(path, Into::into)(input)
 }
 
 pub(crate) fn usize(input: &str) -> IResult<&str, usize> {
@@ -50,8 +51,8 @@ pub(crate) fn nodes(input: &str) -> IResult<&str, Vec<Kind>> {
 }
 #[derive(Debug)]
 pub(crate) enum Cmd {
-    Ls { ret: Vec<Kind> },
-    Cd { arg: Directory },
+    Ls(Vec<Kind>),
+    Cd(String),
 }
 
 impl Display for Cmd {
@@ -60,8 +61,8 @@ impl Display for Cmd {
             f,
             "{}",
             match self {
-                Cmd::Ls { ret } => format!("ls returns {} fils and dirs", ret.len()),
-                Cmd::Cd { arg } => format!("cd to directory {}", arg.name.to_str().unwrap_or("")),
+                Cmd::Ls(ret) => format!("ls returns {} files and dirs", ret.len()),
+                Cmd::Cd(arg) => format!("cd to directory {}", arg),
             }
         )
     }
@@ -71,16 +72,34 @@ pub(crate) fn ls(input: &str) -> IResult<&str, Vec<Kind>> {
     preceded(tag("ls"), nodes)(input)
 }
 
-pub(crate) fn cd(input: &str) -> IResult<&str, Directory> {
-    preceded(tag("cd "), map(path, |pb| Directory::new(pb)))(input)
+pub(crate) fn cd(input: &str) -> IResult<&str, String> {
+    preceded(tag("cd "), map(path, |str| str.to_string()))(input)
 }
+
+/// Split a single CD command in many commands to be able to build corresponding nodes
+pub(crate) fn split_cd(cd: Cmd) -> (Cmd, Option<Cmd>) {
+    assert!(matches!(cd, Cmd::Cd(_)));
+    let splitted = match cd {
+        Cmd::Cd(ref s) => s.split_once("/"),
+        _ => None,
+    };
+
+    match splitted {
+        None => (cd, None),
+        Some((a, b)) => (Cmd::Cd(a.to_string()), Some(Cmd::Cd(b.to_string())))
+    }
+}
+
+fn test() {
+    let r = Cmd::Cd("../dir_a/dir_b/dir_c".to_string());
+    dbg!(r);
+    assert!(false);
+}
+
 pub(crate) fn command(input: &str) -> IResult<&str, Cmd> {
     preceded(
         tag("$ "),
-        alt((
-            map(ls, |nodes| Cmd::Ls { ret: nodes }),
-            map(cd, |dir| Cmd::Cd { arg: dir }),
-        )),
+        alt((map(ls, |nodes| Cmd::Ls(nodes)), map(cd, |dir| Cmd::Cd(dir)))),
     )(input)
 }
 pub(crate) fn terminal(input: &str) -> IResult<&str, Vec<Cmd>> {
@@ -91,7 +110,7 @@ pub(crate) fn terminal(input: &str) -> IResult<&str, Vec<Cmd>> {
 mod test {
     use crate::{
         fs::{Directory, DiskSize, File},
-        parser::{cd, dir, dir_node, file, file_node, ls, nodes, path, usize},
+        parser::{cd, dir, dir_node, file, file_node, ls, nodes, path, pathbuf, usize},
         TERM,
     };
     use std::path::PathBuf;
@@ -101,13 +120,13 @@ mod test {
     #[test]
     fn parse_path() {
         let input = "/directory/b.txt";
-        assert_eq!(PathBuf::from(input), path(input).unwrap().1);
+        assert_eq!(PathBuf::from(input), pathbuf(input).unwrap().1);
     }
     #[test]
     #[should_panic]
     fn parse_path_fails_if_empty() {
         let input = "";
-        assert!(path(input).unwrap().1 == PathBuf::from("")); // should panic on unwrap
+        assert!(path(input).unwrap().1 == ""); // should panic on unwrap
     }
     #[test]
     fn parse_usize() {
@@ -175,13 +194,13 @@ mod test {
     #[test]
     fn parse_cd() {
         let input = "cd directory_x"; // sum is 14942783
-        assert!(cd(input).unwrap().1.name == PathBuf::from("directory_x"));
+        assert!(cd(input).unwrap().1 == "directory_x");
     }
 
     #[test]
     fn parse_command() {
         let input = "cd directory_x"; // sum is 14942783
-        assert!(cd(input).unwrap().1.name == PathBuf::from("directory_x"));
+        assert!(cd(input).unwrap().1 == "directory_x");
     }
 
     #[test]
