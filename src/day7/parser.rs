@@ -86,7 +86,7 @@ pub(crate) fn split_cd(cd: Cmd) -> (Cmd, Option<Cmd>) {
 
     match splitted {
         None => (cd, None),
-        Some((a, b)) => (Cmd::Cd(a.to_string()), Some(Cmd::Cd(b.to_string())))
+        Some((a, b)) => (Cmd::Cd(a.to_string()), Some(Cmd::Cd(b.to_string()))),
     }
 }
 

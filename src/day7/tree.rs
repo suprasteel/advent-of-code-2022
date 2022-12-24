@@ -1,4 +1,6 @@
-use std::{rc::Rc, cell::RefCell};
+use std::{cell::RefCell, rc::Rc};
+
+use crate::{parser::terminal, TERM};
 
 /*type NodeRef<T> = Rc<RefCell<Node<T>>>;
 
@@ -29,28 +31,50 @@ struct Node<T> {
 }*/
 
 /*
- 
-
-   let dir1 = Dir();
-   let dir2 = Dir();
-   dir1.insert(file);
-   dir1.insert(dir2);
 
 
-   */
+let dir1 = Dir();
+let dir2 = Dir();
+dir1.insert(file);
+dir1.insert(dir2);
 
+
+*/
+#[derive(Debug)]
 struct Node<'a> {
-    size: u32,
+    size: u64,
     children: Vec<Node<'a>>,
     parent: Option<&'a Node<'a>>,
 }
 
 #[test]
-fn try_node () {
+fn try_node() {
+    let b = Node {
+        size: 2,
+        children: vec![],
+        parent: None,
+    };
+    let c = Node {
+        size: 3,
+        children: vec![],
+        parent: None,
+    };
+    let a = Node {
+        size: 0,
+        children: vec![b, c],
+        parent: None,
+    };
 
-    let n = Node { size: 1, children: vec![], parent: None };
+    dbg!(a);
+    assert!(false);
 }
 
-
-
-
+#[test]
+fn try_read() {
+    let (_, parsed_term) = terminal(TERM).unwrap();
+    let mut cmd_iterator = parsed_term.into_iter();
+    while let Some(cmd) = cmd_iterator.next() {
+        println!("{}", cmd);
+    }
+    assert!(false);
+}
