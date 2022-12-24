@@ -42,13 +42,13 @@ struct Node<T> {
 struct Node<'a> {
     size: u32,
     children: Vec<Node<'a>>,
-    parent: &'a Node<'a>,
+    parent: Option<&'a Node<'a>>,
 }
 
 #[test]
 fn try_node () {
 
-    let n = Node { size: 1, children: vec![], parent: };
+    let n = Node { size: 1, children: vec![], parent: None };
 }
 
 
