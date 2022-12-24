@@ -1,6 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{parser::terminal, TERM};
+use crate::{
+    parser::{terminal, Cmd},
+    TERM,
+};
 
 /*type NodeRef<T> = Rc<RefCell<Node<T>>>;
 
@@ -74,7 +77,15 @@ fn try_read() {
     let (_, parsed_term) = terminal(TERM).unwrap();
     let mut cmd_iterator = parsed_term.into_iter();
     while let Some(cmd) = cmd_iterator.next() {
-        println!("{}", cmd);
+        match cmd {
+            Cmd::Cd(p) => {
+                println!("cd to {}", p),
+
+            }
+            Cmd::Ls(list) => {
+                list.iter().for_each(|v| println!("Ls result is: \n{}", v));
+            }
+        }
     }
     assert!(false);
 }
