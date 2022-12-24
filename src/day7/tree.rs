@@ -45,42 +45,47 @@ dir1.insert(dir2);
 */
 #[derive(Debug)]
 struct Node<'a> {
+    name: String,
     size: u64,
     children: Vec<Node<'a>>,
     parent: Option<&'a Node<'a>>,
 }
 
+impl<'a> Node<'a> {
+
+    fn new<S: Into<String>>(name: S, size: u64) -> Self {
+        Self {
+            name: name.into(), size, children: vec![], parent: None,
+        }
+    }
+
+    fn has_name(&self, n: &str) -> bool {
+        self.name == n
+    }
+}
+
 #[test]
 fn try_node() {
-    let b = Node {
-        size: 2,
-        children: vec![],
-        parent: None,
-    };
-    let c = Node {
-        size: 3,
-        children: vec![],
-        parent: None,
-    };
-    let a = Node {
-        size: 0,
-        children: vec![b, c],
-        parent: None,
-    };
+    let b = Node::new("b", 2);
+    let c = Node::new("c", 3);
+    let a = Node::new("a", 0);
 
     dbg!(a);
     assert!(false);
 }
 
+
+
 #[test]
 fn try_read() {
+    let tree: Option<Node> = None;
     let (_, parsed_term) = terminal(TERM).unwrap();
     let mut cmd_iterator = parsed_term.into_iter();
     while let Some(cmd) = cmd_iterator.next() {
         match cmd {
             Cmd::Cd(p) => {
-                println!("cd to {}", p),
-
+                println!("cd to {}", p);
+                let dir = Node::new(p, 0);
             }
             Cmd::Ls(list) => {
                 list.iter().for_each(|v| println!("Ls result is: \n{}", v));
