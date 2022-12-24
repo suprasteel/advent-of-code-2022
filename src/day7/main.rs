@@ -1,6 +1,10 @@
 mod fs;
 mod parser;
-use parser::terminal;
+mod tree;
+use std::rc::Rc;
+
+use fs::Directory;
+use parser::{terminal, Cmd};
 
 pub const TERM: &str = r#"$ cd /
 $ ls
@@ -42,7 +46,39 @@ const FS_TREE_STR: &str = r#"- / (dir)
     - d.ext (file, size=5626152)
     - k (file, size=7214296)"#;
 
+
+
 fn main() {
     let (_, parsed_term) = terminal(TERM).unwrap();
     parsed_term.iter().for_each(|v| println!("{}", v));
+
+    let mut currentd: Option<Rc<Directory>> = None;
+
+/*
+let cmd = Cmd::Ls(vec![]);
+    match cmd {
+        Cmd::Cd(root) if root == "/" => {
+            let cur_dir = match currentd {
+                Some(c) => {
+                    loop {
+                        match c.parent() {
+                            None => break,
+                            Some(parent) => 
+                        }
+                        
+                    }
+                },
+                None => Directory::new(root)
+            }
+    },
+        Cmd::Cd(to_dir) => {
+            let cur_dir = match currentd {
+                Some(c) => {c.push(Directory::new(to_dir)); c},
+                None => Directory::new(to_dir)
+            }
+        },
+        Cmd::Ls(a) => {}
+    }
+    */
 }
+

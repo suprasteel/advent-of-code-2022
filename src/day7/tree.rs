@@ -1,12 +1,14 @@
-use std::rc::Rc;
+use std::{rc::Rc, cell::RefCell};
+
+/*type NodeRef<T> = Rc<RefCell<Node<T>>>;
 
 struct Node<T> {
     content: T,
-    children: Vec<Rc<Node<T>>>,
-    parent: Option<Rc<Node<T>>>
-}
+    children: Vec<NodeRef<T>>,
+    parent: Option<NodeRef<T>>
+}*/
 
-impl<T> Node<T> {
+/*impl<T> Node<T> {
     pub fn new(t: T) -> Self {
         Self {
             content: t,
@@ -15,15 +17,40 @@ impl<T> Node<T> {
         }
     }
 
-    pub fn insert(self, t: Rc<Node<T>>) {
-        t.as_ref().set_parent(Rc::new(self));
-        self.children.push(t);
+    pub fn insert(&mut self, t: T) {
+        let mut new_node = Node::new(t);
+        new_node.set_parent(Rc::new(RefCell::new(self)));
+        self.children.push();
     }
 
-    pub fn set_parent(&self, t: Rc<Node<T>>) -> Option<Rc<Node<T>>> {
-        self.parent.replace(t)
+    fn set_parent(&mut self, parent: NodeRef<T>) -> Option<NodeRef<T>> {
+        self.parent.replace(parent)
     }
+}*/
+
+/*
+ 
+
+   let dir1 = Dir();
+   let dir2 = Dir();
+   dir1.insert(file);
+   dir1.insert(dir2);
+
+
+   */
+
+struct Node<'a> {
+    size: u32,
+    children: Vec<Node<'a>>,
+    parent: &'a Node<'a>,
 }
 
 #[test]
-fn tree() {}
+fn try_node () {
+
+    let n = Node { size: 1, children: vec![], parent: };
+}
+
+
+
+
