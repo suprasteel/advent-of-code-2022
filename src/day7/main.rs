@@ -1,10 +1,8 @@
 mod fs;
 mod parser;
 mod tree;
-use std::rc::Rc;
-
-use fs::Directory;
-use parser::{terminal, Cmd};
+use parser::terminal;
+use tree::{build_tree, Parent};
 
 pub const TERM: &str = r#"$ cd /
 $ ls
@@ -48,34 +46,19 @@ const FS_TREE_STR: &str = r#"- / (dir)
 
 fn main() {
     let (_, parsed_term) = terminal(TERM).unwrap();
-    parsed_term.iter().for_each(|v| println!("{}", v));
+    let mut cmd_iterator = parsed_term.into_iter();
+    let tree = build_tree(&mut cmd_iterator, vec![], None);
 
-    let mut currentd: Option<Rc<Directory>> = None;
-
-    /*
-    let cmd = Cmd::Ls(vec![]);
-        match cmd {
-            Cmd::Cd(root) if root == "/" => {
-                let cur_dir = match currentd {
-                    Some(c) => {
-                        loop {
-                            match c.parent() {
-                                None => break,
-                                Some(parent) =>
-                            }
-
-                        }
-                    },
-                    None => Directory::new(root)
-                }
-        },
-            Cmd::Cd(to_dir) => {
-                let cur_dir = match currentd {
-                    Some(c) => {c.push(Directory::new(to_dir)); c},
-                    None => Directory::new(to_dir)
-                }
-            },
-            Cmd::Ls(a) => {}
+    let size = if let Ok(tree) = tree {
+        let mut top = tree.clone();
+        while top.parent().is_some() {
+            top = top.parent().unwrap();
         }
-        */
+        let b = top.borrow();
+        b.size()
+    } else {
+        0
+    };
+
+    println!("SIZE {}", size);
 }

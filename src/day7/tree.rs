@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, thread::sleep, time::Duration};
 
 use crate::{
     fs::{DiskSize, Kind},
@@ -9,7 +9,7 @@ use crate::{
 type Rcm<T> = Rc<RefCell<T>>;
 
 #[derive(Debug)]
-struct Node {
+pub struct Node {
     name: String,
     size: u64,
     children: Vec<Rcm<Self>>,
@@ -17,7 +17,7 @@ struct Node {
 }
 
 impl Node {
-    fn new<S: Into<String>>(name: S, size: u64) -> Self {
+    pub fn new<S: Into<String>>(name: S, size: u64) -> Self {
         Self {
             name: name.into(),
             size,
@@ -29,26 +29,26 @@ impl Node {
     fn has_name<S: AsRef<str>>(&self, name: S) -> bool {
         self.name == name.as_ref()
     }
-}
 
-trait Parent: Clone {
-    fn parent(self) -> Option<Self>;
-}
-
-impl Parent for Rc<RefCell<Node>> {
-    fn parent(self) -> Option<Self> {
-        self.borrow().parent.clone()
+    pub fn size(&self) -> u64 {
+        if self.size == 0 {
+            self.children
+                .iter()
+                .fold(0, |acc, c| acc + c.borrow().size())
+        } else {
+            self.size
+        }
     }
 }
 
-#[test]
-fn try_node() {
-    let _b = Node::new("b", 2);
-    let _c = Node::new("c", 3);
-    let a = Node::new("a", 0);
+pub trait Parent: Clone {
+    fn parent(&self) -> Option<Self>;
+}
 
-    dbg!(a);
-    assert!(false);
+impl Parent for Rc<RefCell<Node>> {
+    fn parent(&self) -> Option<Self> {
+        self.borrow().parent.clone()
+    }
 }
 
 fn kind_size(k: &Kind) -> u64 {
@@ -58,17 +58,25 @@ fn kind_size(k: &Kind) -> u64 {
     }
 }
 
-fn build_tree<'a, I: Iterator<Item = Cmd>>(
+pub(crate) fn build_tree<'a, I: Iterator<Item = Cmd>>(
     cmds: &mut I,
     mut path_parts: Vec<String>,
     tree: Option<Rcm<Node>>,
 ) -> Result<Rcm<Node>, String> {
-    print!("\n build tree: ");
+    let cur_node_name = tree
+        .as_ref()
+        .map_or_else(|| "[]".into(), |v| v.borrow().name.clone());
+    print!(
+        "\n\n - build tree. Path is {}, current node is {cur_node_name}\n",
+        &path_parts
+            .iter()
+            .fold("".into(), |a, s| format!("{} {}", a, s))
+    );
     // if there is a still a cmd
     if let Some(next_cmd) = cmds.next() {
         match next_cmd {
             Cmd::Cd(path) => {
-                print!("cd {}", &path);
+                print!("\t - command is cd {}", &path);
                 // it is a cd
                 let node = match path.as_str() {
                     "/" => {
@@ -80,6 +88,7 @@ fn build_tree<'a, I: Iterator<Item = Cmd>>(
                             root = root.parent().unwrap();
                             path_parts.pop();
                         }
+                        path_parts.push("/".into());
                         // return build_tree(cmds, path_parts, Some(root));
                         root
                     }
@@ -124,17 +133,17 @@ fn build_tree<'a, I: Iterator<Item = Cmd>>(
             }
             Cmd::Ls(files) => {
                 print!(
-                    "ls {}",
+                    "\t - command is ls {}",
                     &files
                         .iter()
-                        .fold("".into(), |acc, f| format!("{}, {}", acc, f))
+                        .fold("".into(), |acc, f| format!("{}\n\t\t{}", acc, f))
                 );
                 let tree = tree.expect("try to add children without cwd");
                 files.iter().for_each(|f| {
-                    
-                    tree.borrow_mut()
-                        .children
-                        .push(Rc::new(RefCell::new(Node::new(f.name(), f.size() as u64))));
+                    let mut new_node = Node::new(f.name(), f.size() as u64);
+                    new_node.parent = Some(tree.clone());
+                    let new_node = Rc::new(RefCell::new(new_node));
+                    tree.borrow_mut().children.push(new_node);
                 });
                 build_tree(cmds, path_parts, Some(tree))
             }
@@ -149,19 +158,22 @@ fn build_tree<'a, I: Iterator<Item = Cmd>>(
 //
 
 #[test]
-fn try_read() {
+fn test_size_fs() {
     let (_, parsed_term) = terminal(TERM).unwrap();
-    dbg!(&parsed_term);
     let mut cmd_iterator = parsed_term.into_iter();
-
     let tree = build_tree(&mut cmd_iterator, vec![], None);
 
-    match tree {
-        Ok(r) => {
-            dbg!(r);
+    let size = if let Ok(tree) = tree {
+        let mut top = tree.clone();
+        while top.borrow().parent.is_some() {
+            top = top.parent().unwrap();
         }
-        e => println!("Oups: {:?}", e),
-    }
+        let b = top.borrow();
+        b.size()
+    } else {
+        0
+    };
 
-    assert!(false);
+
+    assert_eq!(size, 48381165_u64);
 }
