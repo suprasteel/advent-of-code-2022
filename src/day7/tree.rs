@@ -45,11 +45,11 @@ dir1.insert(dir2);
 
 */
 #[derive(Debug)]
-struct Node<'a> {
+struct Node {
     name: String,
     size: u64,
-    children: Vec<Node<'a>>,
-    parent: Option<&'a Node<'a>>,
+    children: Vec<Rc<Node>>,
+    parent: Option<Rc<Node>>,
 }
 
 impl<'a> Node<'a> {
@@ -101,9 +101,22 @@ fn build_tree<'a, I: Iterator<Item = Cmd>>(
     mut folders: Vec<String>,
     tree: Node<'a>,
 ) -> Node<'a> {
+    // if there is a still a cmd
     if let Some(next_cmd) = cmds.next() {
         match next_cmd {
             Cmd::Cd(path) => {
+                // it is a cd
+                match path.as_str() {
+                    "/" => {
+                        // to root
+                        let mut root;
+                        while let Some(parent) = tree.parent {
+                            root = parent;
+                        }
+                        return build_tree(cmds, folders, root);
+                    }
+                    _ => {}
+                }
                 folders.push(path);
                 build_tree(cmds, folders, tree)
             }
@@ -118,6 +131,10 @@ fn build_tree<'a, I: Iterator<Item = Cmd>>(
         tree
     }
 }
+
+// build_tree(cmds) -> tree
+// build_node(cmds, tree, node) -> node
+//
 
 #[test]
 fn try_read() {
