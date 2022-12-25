@@ -1,49 +1,10 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 use crate::{
-    fs::Kind,
-    parser::{terminal, Cmd},
-    TERM,
+    fs::{Kind, DiskSize},
+    parser::{Cmd, terminal}, TERM,
 };
 
-/*type NodeRef<T> = Rc<RefCell<Node<T>>>;
-
-struct Node<T> {
-    content: T,
-    children: Vec<NodeRef<T>>,
-    parent: Option<NodeRef<T>>
-}*/
-
-/*impl<T> Node<T> {
-    pub fn new(t: T) -> Self {
-        Self {
-            content: t,
-            children: vec![],
-            parent: None,
-        }
-    }
-
-    pub fn insert(&mut self, t: T) {
-        let mut new_node = Node::new(t);
-        new_node.set_parent(Rc::new(RefCell::new(self)));
-        self.children.push();
-    }
-
-    fn set_parent(&mut self, parent: NodeRef<T>) -> Option<NodeRef<T>> {
-        self.parent.replace(parent)
-    }
-}*/
-
-/*
-
-
-let dir1 = Dir();
-let dir2 = Dir();
-dir1.insert(file);
-dir1.insert(dir2);
-
-
-*/
 #[derive(Debug)]
 struct Node {
     name: String,
@@ -52,7 +13,7 @@ struct Node {
     parent: Option<Rc<Node>>,
 }
 
-impl<'a> Node<'a> {
+impl Node {
     fn new<S: Into<String>>(name: S, size: u64) -> Self {
         Self {
             name: name.into(),
@@ -62,8 +23,8 @@ impl<'a> Node<'a> {
         }
     }
 
-    fn has_name(&self, n: &str) -> bool {
-        self.name == n
+    fn has_name<S: AsRef<str>>(&self, name: S) -> bool {
+        self.name == name.as_ref()
     }
 }
 
@@ -98,37 +59,57 @@ fn kind_size(k: &Kind) -> u64 {
 
 fn build_tree<'a, I: Iterator<Item = Cmd>>(
     cmds: &mut I,
-    mut folders: Vec<String>,
-    tree: Node<'a>,
-) -> Node<'a> {
+    mut path_parts: Vec<String>,
+    tree: Option<Rc<Node>>,
+) -> Result<Rc<Node>, String> {
     // if there is a still a cmd
     if let Some(next_cmd) = cmds.next() {
         match next_cmd {
             Cmd::Cd(path) => {
                 // it is a cd
-                match path.as_str() {
+                let node = match path.as_str() {
                     "/" => {
                         // to root
-                        let mut root;
-                        while let Some(parent) = tree.parent {
-                            root = parent;
+                        let mut root = tree.clone().unwrap_or_else(|| Rc::new(Node::new("/", 0)));
+                        while root.parent.is_some() {
+                            root = root.parent.clone().unwrap();
+                            path_parts.pop();
                         }
-                        return build_tree(cmds, folders, root);
+                        // return build_tree(cmds, path_parts, Some(root));
+                        root
                     }
-                    _ => {}
-                }
-                folders.push(path);
-                build_tree(cmds, folders, tree)
+                    ".." => {
+                        let parent = tree
+                            .expect("trying to go up while cwd is not set")
+                            .parent
+                            .expect("trying to go up on the root");
+                        path_parts.pop();
+                        // return build_tree(cmds, path_parts, Some(parent));
+                        parent
+                    }
+                    _ => {
+                        path_parts.push(path);
+                        let tree = tree.expect("trying to cd while cwd is not set");
+                        // should log dir name and path
+                        let child = tree
+                            .children
+                            .iter()
+                            .find(|c| c.has_name(path))
+                            .expect("directory not found in tree");
+                        // return build_tree(cmds, path_parts, Some(parent));
+                        *child
+                    }
+                };
+                build_tree(cmds, path_parts, Some(node))
             }
             Cmd::Ls(files) => {
-                let size = files.iter().fold(0, |acc, elt| acc + kind_size(elt));
-                let node = Node::new(folders.last().expect("empty path list"), size);
-                // tree.children.push(node);
-                build_tree(cmds, folders, node)
-            }
+                let tree = tree.expect("try to add children without cwd");
+                files.iter().for_each(|f| tree.children.push(Rc::new(Node::new(f.name(), f.size() as u64))));
+                build_tree(cmds, path_parts, Some(tree))
+            },
         }
     } else {
-        tree
+        tree.ok_or_else(|| "Empty tree".into())
     }
 }
 

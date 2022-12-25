@@ -63,6 +63,19 @@ pub enum Kind {
     D(Directory),
 }
 
+impl Kind {
+    pub fn name(&self) -> String {
+        let string = |pb: &PathBuf| pb
+                .to_str()
+                .expect("failed to convert pathbuf to str")
+                .to_string();
+        match self {
+            Kind::F(f) => string(&f.name),
+            Kind::D(d) => string(&d.name),
+        }
+    }
+}
+
 pub trait DiskSize {
     fn size(&self) -> usize;
 }
