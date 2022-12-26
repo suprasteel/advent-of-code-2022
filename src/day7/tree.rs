@@ -39,7 +39,44 @@ impl Node {
             self.size
         }
     }
+
+    // dirty way
+    pub fn to_vec(&self) -> Vec<(String, u64, bool)> {
+        let mut list: Vec<(String, u64, bool)> = self
+            .children
+            .iter()
+            .flat_map(|c| c.borrow().to_vec())
+            .collect();
+        list.push((self.name.clone(), self.size(), self.size == 0));
+        list
+    }
 }
+
+/****
+                f1 9100 -> 0, 9100
+                f2 1000 -> 0, 1000
+
+            d1          -> 0, 10100 (a = a1, a2, b = b1 + b2)
+
+                f3  800 -> 0, 800
+                f3  100 -> 0, 100
+
+            d2          -> 0, 900
+
+        d3            -> 900, 11000 (a = b1
+
+                fa  100 -> 0, 100
+                fb  200 -> 0, 200
+
+            da          -> 0, 300
+
+                fc   10 -> 0, 10
+                fd    1 -> 0, 1
+            db  -> 0, 110
+            fe 999 -> 0, 999
+        dc  -> 410, 1409
+    d4  -> 2310,3309
+*****/
 
 pub trait Parent: Clone {
     fn parent(&self) -> Option<Self>;
@@ -163,17 +200,24 @@ fn test_size_fs() {
     let mut cmd_iterator = parsed_term.into_iter();
     let tree = build_tree(&mut cmd_iterator, vec![], None);
 
-    let size = if let Ok(tree) = tree {
+    let top = if let Ok(tree) = tree {
         let mut top = tree.clone();
         while top.borrow().parent.is_some() {
             top = top.parent().unwrap();
         }
-        let b = top.borrow();
-        b.size()
+        top
     } else {
-        0
+        panic!("no top");
     };
 
+    let b = top.borrow();
+    let size = b.size();
+    let v = top.borrow().to_vec();
+    let k100 = v.iter().fold(
+        0,
+        |acc, (n, s, d)| if *d && s < &100_000 { acc + s } else { acc },
+    );
 
     assert_eq!(size, 48381165_u64);
+    assert_eq!(k100, 95437_u64);
 }
