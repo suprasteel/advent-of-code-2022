@@ -8,7 +8,7 @@ const EXAMPLE: &str = "
 35390
 ";
 const L: usize = 5;
-const C: usize = 6;
+const C: usize = 5;
 
 /// A grid representing the trees
 /// L is the fixed number of lines
@@ -30,6 +30,12 @@ struct Grid {
     inner: [u8; L * C],
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum TryGridFromStrErr {
+    #[error("Invalid char '{0}' encoured at position {1} of input while building Grid")]
+    InvalidChar(char, usize),
+}
+
 impl<I> From<I> for Grid
 where
     I: Iterator<Item = char>,
@@ -40,7 +46,12 @@ where
         for c in char_iter {
             if c != '\n' {
                 assert!(c >= '0' && c <= '9', "char is {}", c);
-                assert!(index < instance.inner.len(), "{} is out of grid length ({})", index, instance.inner.len());
+                assert!(
+                    index < instance.inner.len(),
+                    "{} is out of grid length ({})",
+                    index,
+                    instance.inner.len()
+                );
                 println!("{index} -> {c}");
                 instance.inner[index] = c.to_digit(10).unwrap() as u8;
                 index += 1;
@@ -58,10 +69,11 @@ impl Default for Grid {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum TryGridFromStrErr {
-    #[error("Invalid char '{0}' encoured at position {1} of input while building Grid")]
-    InvalidChar(char, usize),
+impl Grid {
+    /// retrieve a value for itself coordinate in terms of lines/columns
+    fn get(&self, line: usize, col: usize) -> u8 {
+        self.inner[line * L + col]
+    }
 }
 
 fn main() -> Result<()> {
@@ -69,4 +81,29 @@ fn main() -> Result<()> {
     let grid: Grid = EXAMPLE.chars().into();
     dbg!(grid);
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{Grid, EXAMPLE};
+
+    #[rustfmt::skip]
+    const EXAMPLE_NB: [u8; 25] = [
+        3,0,3,7,3,
+        2,5,5,1,2,
+        6,5,3,3,2,
+        3,3,5,4,9,
+        3,5,3,9,0];
+
+    #[test]
+    fn init_u8_grid_from_str() {
+        let grid: Grid = EXAMPLE.chars().into();
+        assert_eq!(grid.inner, EXAMPLE_NB);
+    }
+
+    #[test]
+    fn get_value_at_position() {
+        let grid: Grid = EXAMPLE.chars().into();
+        assert_eq!(grid.get(0, 3), 7);
+    }
 }
