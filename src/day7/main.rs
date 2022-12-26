@@ -1,6 +1,8 @@
 mod fs;
 mod parser;
 mod tree;
+use std::fs::read_to_string;
+
 use parser::terminal;
 use tree::{build_tree, Parent};
 
@@ -44,21 +46,32 @@ const FS_TREE_STR: &str = r#"- / (dir)
     - d.ext (file, size=5626152)
     - k (file, size=7214296)"#;
 
-fn main() {
-    let (_, parsed_term) = terminal(TERM).unwrap();
+fn main() -> std::io::Result<()> {
+    let data = read_to_string("./data/day7.dat")?;
+    let (_, parsed_term) = terminal(data.as_str()).unwrap();
     let mut cmd_iterator = parsed_term.into_iter();
     let tree = build_tree(&mut cmd_iterator, vec![], None);
 
-    let size = if let Ok(tree) = tree {
+    let top = if let Ok(tree) = tree {
         let mut top = tree.clone();
-        while top.parent().is_some() {
+        while top.borrow().parent.is_some() {
             top = top.parent().unwrap();
         }
-        let b = top.borrow();
-        b.size()
+        top
     } else {
-        0
+        panic!("no top");
     };
 
-    println!("SIZE {}", size);
+    let b = top.borrow();
+    let size = b.size();
+    let v = top.borrow().to_vec();
+    let k100 = v.iter().fold(
+        0,
+        |acc, (n, s, d)| if *d && s < &100_000 { acc + s } else { acc },
+    );
+
+    dbg!(size);
+    dbg!(k100);
+
+    Ok(())
 }

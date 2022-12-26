@@ -13,7 +13,7 @@ pub struct Node {
     name: String,
     size: u64,
     children: Vec<Rcm<Self>>,
-    parent: Option<Rcm<Self>>,
+    pub parent: Option<Rcm<Self>>,
 }
 
 impl Node {
