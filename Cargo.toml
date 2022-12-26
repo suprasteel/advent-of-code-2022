@@ -33,9 +33,14 @@ path = "src/day6/main.rs"
 name = "day7"
 path = "src/day7/main.rs"
 
+[[bin]]
+name = "day8"
+path = "src/day8/main.rs"
 
 [dependencies]
 simple_logger = "2.2.0"
 log = "0.4.17"
 nom = "7.1.1"
-derive-new = "0.5.9"
+color-eyre = { version = "0.5", default-features = false }
+eyre = "0.6.8"
+thiserror = "1.0.38"
