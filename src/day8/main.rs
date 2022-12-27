@@ -30,12 +30,41 @@ struct Grid {
     inner: [u8; L * C],
 }
 
+// -------------------------
+// -- Grid usage
+// -------------------------
+
+impl Grid {
+    /// retrieve a value for itself coordinate in terms of lines/columns
+    fn get(&self, line: usize, col: usize) -> u8 {
+        self.inner[line * L + col]
+    }
+
+    fn lines(&self) -> impl Iterator<Item = &[u8]> {
+        self.inner.chunks(C)
+    }
+
+    fn columns(&self) -> impl Iterator<Item = &u8> {
+        
+        let iter_col_with_offset = |o: usize| self.inner.iter().skip(o).step_by(C).take(C);
+        let all = (0..C).into_iter().map(|col| iter_col_with_offset(col)).fold(std::iter::empty().chain(std::iter::empty()), |acc, cur| acc.chain(cur));
+
+all
+    }
+}
+
+// -------------------------
+// -- Grid initialisation --
+// -------------------------
+
+/// Errors linked to the grid structure initialisation
 #[derive(thiserror::Error, Debug)]
 pub enum TryGridFromStrErr {
     #[error("Invalid char '{0}' encoured at position {1} of input while building Grid")]
     InvalidChar(char, usize),
 }
 
+/// Init Grid form a char iterator
 impl<I> From<I> for Grid
 where
     I: Iterator<Item = char>,
@@ -69,19 +98,54 @@ impl Default for Grid {
     }
 }
 
-impl Grid {
-    /// retrieve a value for itself coordinate in terms of lines/columns
-    fn get(&self, line: usize, col: usize) -> u8 {
-        self.inner[line * L + col]
+// -------------------------
+// -- Forest trait
+// -------------------------
+
+trait Forest {
+    fn count_visible<const N: usize>(tree_heights: &[u8; N]) -> usize {
+        // change line to 'mountain'
+        // from '1232245723934011321'
+        // to   '1233345777944333321'
+        // then count where two following items are !=
+        //
+
+        let mut highest_left = 0;
+        let mut lowest_right = 9;
+        let mut height_to_be_visible_from_left_to_right = [0; N];
+        let mut height_to_be_visible_from_right_to_left = [0; N];
+        for (index, current) in tree_heights.iter().enumerate() {
+            let current = *current;
+            if current > highest_left {
+                highest_left = current;
+            }
+            if current < highest_left {
+                lowest_right = current;
+            }
+            height_to_be_visible_from_left_to_right[index] = highest_left;
+            height_to_be_visible_from_right_to_left[index] = lowest_right;
+        }
+
+        //list.iter().fold((0_usize, |acc, h| h)
+        0
     }
 }
 
+// -------------------------
+// -- MAIN
+// -------------------------
+
 fn main() -> Result<()> {
+    println!("Count the number of visible trees in a forest !");
     color_eyre::install()?;
     let grid: Grid = EXAMPLE.chars().into();
     dbg!(grid);
     Ok(())
 }
+
+// -------------------------
+// -- TESTS
+// -------------------------
 
 #[cfg(test)]
 mod test {
