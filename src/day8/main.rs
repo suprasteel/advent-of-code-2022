@@ -44,12 +44,14 @@ impl Grid {
         self.inner.chunks(C)
     }
 
-    fn columns(&self) -> impl Iterator<Item = &u8> {
-        
-        let iter_col_with_offset = |o: usize| self.inner.iter().skip(o).step_by(C).take(C);
-        let all = (0..C).into_iter().map(|col| iter_col_with_offset(col)).fold(std::iter::empty().chain(std::iter::empty()), |acc, cur| acc.chain(cur));
+    fn columns(&self) -> impl Iterator<Item = Vec<u8>> + '_ {
+        let iter_col_with_offset =
+            |o: usize| self.inner.iter().skip(o).step_by(C).take(C).map(|c| *c);
+        let all = (0..C)
+            .into_iter()
+            .map(move |col| iter_col_with_offset(col).collect::<Vec<u8>>());
 
-all
+        all
     }
 }
 
@@ -81,7 +83,7 @@ where
                     index,
                     instance.inner.len()
                 );
-                println!("{index} -> {c}");
+                // println!("{index} -> {c}");
                 instance.inner[index] = c.to_digit(10).unwrap() as u8;
                 index += 1;
             } else {
@@ -139,7 +141,7 @@ fn main() -> Result<()> {
     println!("Count the number of visible trees in a forest !");
     color_eyre::install()?;
     let grid: Grid = EXAMPLE.chars().into();
-    dbg!(grid);
+    // dbg!(grid);
     Ok(())
 }
 
@@ -169,5 +171,21 @@ mod test {
     fn get_value_at_position() {
         let grid: Grid = EXAMPLE.chars().into();
         assert_eq!(grid.get(0, 3), 7);
+    }
+    #[test]
+    fn get_lines() {
+        let grid: Grid = EXAMPLE.chars().into();
+        for l in grid.lines() {
+            println!("{}", l.iter().fold("".into(), |acc, u| format!("{acc} {u}")));
+        }
+        assert!(false);
+    }
+    #[test]
+    fn get_columns() {
+        let grid: Grid = EXAMPLE.chars().into();
+        for l in grid.columns() {
+            println!("{}", l.iter().fold("".into(), |acc, u| format!("{acc} {u}")));
+        }
+        assert!(false);
     }
 }
