@@ -1,3 +1,8 @@
+use std::{
+    fmt::{self, Display},
+    fs::read_to_string,
+};
+
 use color_eyre::eyre::Result;
 
 const EXAMPLE: &str = "
@@ -7,8 +12,10 @@ const EXAMPLE: &str = "
 33549
 35390
 ";
-const L: usize = 5;
-const C: usize = 5;
+
+// playing with const
+const L: usize = 99;
+const C: usize = 99;
 
 /// A grid representing the trees
 /// L is the fixed number of lines
@@ -33,11 +40,34 @@ struct Grid<T> {
 // -------------------------
 // -- Grid usage
 // -------------------------
+#[inline]
+fn assert_coords(line: usize, col: usize) {
+    assert_line(line);
+    assert_col(col);
+}
 
-impl<T> Grid<T> where T: Copy{
+#[inline]
+fn assert_line(line: usize) {
+    assert!(line < L, "Line {line} > grid size ({L})");
+}
+#[inline]
+fn assert_col(col: usize) {
+    assert!(col < C, "Column {col} > grid size ({C})");
+}
+
+impl<T> Grid<T>
+where
+    T: Copy,
+{
     /// retrieve a value for itself coordinate in terms of lines/columns
     fn get(&self, line: usize, col: usize) -> T {
+        assert_coords(line, col);
         self.inner[line * L + col]
+    }
+
+    fn get_mut(&mut self, line: usize, col: usize) -> &mut T {
+        assert_coords(line, col);
+        &mut self.inner[line * L + col]
     }
 
     fn lines(&self) -> impl Iterator<Item = &[T]> {
@@ -45,12 +75,13 @@ impl<T> Grid<T> where T: Copy{
     }
 
     fn line(&self, line_index: usize) -> &[T] {
-        assert!(line_index < L, "trying to access line {line_index} while there are only {L} lines in the grid");
-        self
-            .lines()
+        assert_line(line_index);
+
+        self.lines()
             .enumerate()
-            .find(|(i, _)| i ==& line_index)
-            .map(|(_, values)| values).unwrap()
+            .find(|(i, _)| i == &line_index)
+            .map(|(_, values)| values)
+            .unwrap()
     }
 
     fn columns(&self) -> impl Iterator<Item = Vec<T>> + '_ {
@@ -64,14 +95,13 @@ impl<T> Grid<T> where T: Copy{
     }
 
     fn column(&self, col_index: usize) -> Vec<T> {
-        assert!(col_index < L, "trying to access line {col_index} while there are only {L} lines in the grid");
-        self
-            .columns()
+        assert_col(col_index);
+        self.columns()
             .enumerate()
-            .find(|(i, _)| i ==&col_index)
-            .map(|(_, values)| values).unwrap()
+            .find(|(i, _)| i == &col_index)
+            .map(|(_, values)| values)
+            .unwrap()
     }
-
 }
 
 // -------------------------
@@ -98,8 +128,7 @@ where
                 assert!(c >= '0' && c <= '9', "char is {}", c);
                 assert!(
                     index < instance.inner.len(),
-                    "{} is out of grid length ({})",
-                    index,
+                    "{index} is out of grid length (L({L})*C({C})={})",
                     instance.inner.len()
                 );
                 // println!("{index} -> {c}");
@@ -113,25 +142,24 @@ where
     }
 }
 
-impl<T> Default for Grid<T> where T: Default + Copy {
+impl<T> Default for Grid<T>
+where
+    T: Default + Copy,
+{
     fn default() -> Self {
-        Self { inner: [T::default(); L * C] }
+        Self {
+            inner: [T::default(); L * C],
+        }
     }
 }
 
 // -------------------------
 // -- Forest trait
 // -------------------------
-fn p_u8s(a: &[u8]) {
-    println!(
-        "{}",
-        a.iter().fold("".into(), |acc, u| format!("{acc} {u}"))
-    );
-}
 
 trait Forest {
     fn data(&self) -> &[u8; C * L];
-    fn height(&self, line :usize, col: usize) -> u8;
+    fn height(&self, line: usize, col: usize) -> u8;
     fn is_visible(&self, line: usize, col: usize) -> bool;
     fn count_visible(&self) -> usize;
 }
@@ -146,33 +174,64 @@ impl Forest for Grid<u8> {
     }
 
     fn is_visible(&self, line: usize, col: usize) -> bool {
-
         let h = self.height(line, col);
         let line_values = self.line(line);
         let columns_values = self.column(col);
 
-        // vis from west : does some tree of heigth >= is found on the left
-        let left_viz = line_values.iter().take(col).find(|v| **v > h).is_some();
-        let right_viz = line_values.iter().rev().take(C - col).find(|v| **v > h).is_some();
-        let top_viz = columns_values.iter().take(line).find(|v| **v > h).is_some();
-        let bottom_viz = columns_values.iter().rev().take(L - line).find(|v| **v > h).is_some();
+        fn visible_from_start(line: &[u8], pos: usize, h: u8) -> bool {
+            pos == 0 || line.iter().take(pos).find(|v| **v >= h).is_none()
+        }
+        fn visible_from_end(line: &[u8], pos: usize, h: u8) -> bool {
+            pos == line.len() - 1
+                || line
+                    .iter()
+                    .rev()
+                    .take(line.len() - (pos + 1))
+                    .find(|v| **v >= h)
+                    .is_none()
+        }
+
+        let left_viz = visible_from_start(line_values, col, h);
+        let right_viz = visible_from_end(line_values, col, h);
+        let top_viz = visible_from_start(columns_values.as_ref(), line, h);
+        let bottom_viz = visible_from_end(columns_values.as_ref(), line, h);
+
+        log::debug!("Computing visibility of ({line}, {col}): (left, right, top, bottom) = ({left_viz}, {right_viz}, {top_viz}, {bottom_viz})");
 
         left_viz || right_viz || top_viz || bottom_viz
     }
 
     fn count_visible(&self) -> usize {
         let mut count = 0;
+        let mut viz_grid: Grid<bool> = Grid::default();
         for l in 0..L {
             for c in 0..C {
                 if self.is_visible(l, c) {
-                    println!("({l}, {c}) is visible");
+                    *viz_grid.get_mut(l, c) = true;
                     count += 1;
                 } else {
-                    println!("({l}, {c}) is NOT visible");
+                    *viz_grid.get_mut(l, c) = false;
                 }
             }
         }
+        log::debug!("{viz_grid}");
         count
+    }
+}
+
+impl<T> Display for Grid<T>
+where
+    T: Display + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = self.lines().fold(String::from(""), |all, l| {
+            format!(
+                "{}\n{}",
+                all,
+                l.iter().fold("".into(), |acc, v| format!("{} {}", acc, v))
+            )
+        });
+        write!(f, "{}", s)
     }
 }
 
@@ -181,10 +240,13 @@ impl Forest for Grid<u8> {
 // -------------------------
 
 fn main() -> Result<()> {
-    println!("Count the number of visible trees in a forest !");
+    simple_logger::init_with_level(log::Level::Info).unwrap();
+    log::info!("Count the number of visible trees in a forest !");
     color_eyre::install()?;
-    let grid: Grid<u8> = EXAMPLE.chars().into();
-    // dbg!(grid);
+    let data = read_to_string("./data/day8.dat")?;
+    let grid: Grid<u8> = data.chars().into();
+    let visibles = grid.count_visible();
+    log::info!("The number of visible trees in this forest is {visibles}");
     Ok(())
 }
 
@@ -218,30 +280,23 @@ mod test {
     #[test]
     fn get_lines() {
         let grid: Grid<u8> = EXAMPLE.chars().into();
-        for l in grid.lines() {
-            println!(
+        for (i, l) in grid.lines().enumerate() {
+            log::debug!(
                 "{}",
                 l.iter().fold("".into(), |acc, u| format!("{acc} {u}"))
             );
+            assert_eq!(l, &EXAMPLE_NB[i * 5..(i * 5 + 5)]);
         }
-        assert!(false);
     }
     #[test]
     fn get_columns() {
         let grid: Grid<u8> = EXAMPLE.chars().into();
-        for l in grid.columns() {
-            println!(
-                "{}",
-                l.iter().fold("".into(), |acc, u| format!("{acc} {u}"))
-            );
-        }
-        assert!(false);
+        assert_eq!(grid.columns().next().unwrap(), vec![3, 2, 6, 3, 3]);
     }
 
     #[test]
     fn count_visible_trees() {
         let grid: Grid<u8> = EXAMPLE.chars().into();
-        dbg!(grid.count_visible());
-        assert!(false);
+        assert_eq!(grid.count_visible(), 21);
     }
 }
