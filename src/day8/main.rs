@@ -13,9 +13,23 @@ const EXAMPLE: &str = "
 35390
 ";
 
-// playing with const
-const L: usize = 99;
-const C: usize = 99;
+#[cfg(test)]
+mod Constants {
+    pub const L: usize = 5;
+    pub const C: usize = 5;
+    pub const Z: usize = L * C;
+}
+
+#[cfg(not(test))]
+mod Constants {
+    pub const L: usize = 99;
+    pub const C: usize = 99;
+    pub const Z: usize = L * C;
+}
+
+const L: usize = Constants::L;
+const C: usize = Constants::C;
+const Z: usize = Constants::Z;
 
 /// A grid representing the trees
 /// L is the fixed number of lines
@@ -33,8 +47,9 @@ const C: usize = 99;
 /// K = Grid[3][1]
 ///
 #[derive(Debug)]
-struct Grid<T> {
-    inner: [T; L * C],
+struct Grid<T, const Z: usize> {
+    // L * C
+    inner: [T; Z],
 }
 
 // -------------------------
@@ -55,7 +70,7 @@ fn assert_col(col: usize) {
     assert!(col < C, "Column {col} > grid size ({C})");
 }
 
-impl<T> Grid<T>
+impl<T, const Z: usize> Grid<T, Z>
 where
     T: Copy,
 {
@@ -116,7 +131,7 @@ pub enum TryGridFromStrErr {
 }
 
 /// Init Grid form a char iterator
-impl<I> From<I> for Grid<u8>
+impl<I, const Z: usize> From<I> for Grid<u8, Z>
 where
     I: Iterator<Item = char>,
 {
@@ -142,13 +157,13 @@ where
     }
 }
 
-impl<T> Default for Grid<T>
+impl<T, const Z: usize> Default for Grid<T, Z>
 where
     T: Default + Copy,
 {
     fn default() -> Self {
         Self {
-            inner: [T::default(); L * C],
+            inner: [T::default(); Z],
         }
     }
 }
@@ -157,15 +172,34 @@ where
 // -- Forest trait
 // -------------------------
 
-trait Forest {
-    fn data(&self) -> &[u8; C * L];
+fn slice_scenic_score(view: &[u8]) -> usize {
+    let h = &view[0];
+    view.iter()
+        .skip(1)
+        .position(|tree_h| tree_h >= h)
+        .unwrap_or_else(|| view.len() - 1)
+}
+
+trait Forest<const Z: usize> {
+    fn data(&self) -> &[u8; Z];
     fn height(&self, line: usize, col: usize) -> u8;
     fn is_visible(&self, line: usize, col: usize) -> bool;
     fn count_visible(&self) -> usize;
+
+    /// get the scenic score of the drection,
+    /// pass the tree height and the slice of item in one direction, including the tree on which we
+    /// compute the score
+    fn scenic_score_in_direction(view: &[u8]) -> usize {
+        let h = &view[0];
+        view.iter()
+            .skip(1)
+            .position(|tree_h| tree_h >= h)
+            .unwrap_or_else(|| view.len() - 1)
+    }
 }
 
-impl Forest for Grid<u8> {
-    fn data(&self) -> &[u8; C * L] {
+impl<const Z: usize> Forest<Z> for Grid<u8, Z> {
+    fn data(&self) -> &[u8; Z] {
         &self.inner
     }
 
@@ -203,7 +237,7 @@ impl Forest for Grid<u8> {
 
     fn count_visible(&self) -> usize {
         let mut count = 0;
-        let mut viz_grid: Grid<bool> = Grid::default();
+        let mut viz_grid: Grid<bool, Z> = Grid::default();
         for l in 0..L {
             for c in 0..C {
                 if self.is_visible(l, c) {
@@ -219,7 +253,7 @@ impl Forest for Grid<u8> {
     }
 }
 
-impl<T> Display for Grid<T>
+impl<T, const Z: usize> Display for Grid<T, Z>
 where
     T: Display + Copy,
 {
@@ -244,7 +278,7 @@ fn main() -> Result<()> {
     log::info!("Count the number of visible trees in a forest !");
     color_eyre::install()?;
     let data = read_to_string("./data/day8.dat")?;
-    let grid: Grid<u8> = data.chars().into();
+    let grid: Grid<u8, { C * L }> = data.chars().into();
     let visibles = grid.count_visible();
     log::info!("The number of visible trees in this forest is {visibles}");
     Ok(())
@@ -256,10 +290,10 @@ fn main() -> Result<()> {
 
 #[cfg(test)]
 mod test {
-    use crate::{Forest, Grid, EXAMPLE};
+    use crate::{slice_scenic_score, Forest, Grid, C, EXAMPLE, L, Z};
 
     #[rustfmt::skip]
-    const EXAMPLE_NB: [u8; 25] = [
+    const EXAMPLE_NB: [u8; Z] = [
         3,0,3,7,3,
         2,5,5,1,2,
         6,5,3,3,2,
@@ -268,35 +302,48 @@ mod test {
 
     #[test]
     fn init_u8_grid_from_str() {
-        let grid: Grid<u8> = EXAMPLE.chars().into();
+        let grid: Grid<u8, Z> = EXAMPLE.chars().into();
         assert_eq!(grid.inner, EXAMPLE_NB);
     }
 
     #[test]
     fn get_value_at_position() {
-        let grid: Grid<u8> = EXAMPLE.chars().into();
+        let grid: Grid<u8, Z> = EXAMPLE.chars().into();
         assert_eq!(grid.get(0, 3), 7);
     }
     #[test]
     fn get_lines() {
-        let grid: Grid<u8> = EXAMPLE.chars().into();
+        let grid: Grid<u8, Z> = EXAMPLE.chars().into();
         for (i, l) in grid.lines().enumerate() {
             log::debug!(
                 "{}",
                 l.iter().fold("".into(), |acc, u| format!("{acc} {u}"))
             );
-            assert_eq!(l, &EXAMPLE_NB[i * 5..(i * 5 + 5)]);
+            assert_eq!(l, &EXAMPLE_NB[i * C..(i * L + C)]);
         }
     }
     #[test]
     fn get_columns() {
-        let grid: Grid<u8> = EXAMPLE.chars().into();
+        let grid: Grid<u8, Z> = EXAMPLE.chars().into();
         assert_eq!(grid.columns().next().unwrap(), vec![3, 2, 6, 3, 3]);
     }
 
     #[test]
     fn count_visible_trees() {
-        let grid: Grid<u8> = EXAMPLE.chars().into();
+        let grid: Grid<u8, Z> = EXAMPLE.chars().into();
         assert_eq!(grid.count_visible(), 21);
+    }
+
+    #[test]
+    fn scenic_score_from_slice() {
+        let slices = [
+            (&[6, 4, 5, 2, 1, 6, 7], 5),
+            (&[9, 1, 0, 0, 5, 5, 5], 6),
+            (&[0, 1, 0, 0, 5, 5, 5], 1),
+            (&[9, 1, 3, 5, 7, 9, 0], 5),
+        ];
+        for (input, expected) in slices {
+            assert_eq!(slice_scenic_score(input), expected);
+        }
     }
 }
