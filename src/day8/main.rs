@@ -26,25 +26,25 @@ const C: usize = 5;
 /// K = Grid[3][1]
 ///
 #[derive(Debug)]
-struct Grid {
-    inner: [u8; L * C],
+struct Grid<T> {
+    inner: [T; L * C],
 }
 
 // -------------------------
 // -- Grid usage
 // -------------------------
 
-impl Grid {
+impl<T> Grid<T> where T: Copy{
     /// retrieve a value for itself coordinate in terms of lines/columns
-    fn get(&self, line: usize, col: usize) -> u8 {
+    fn get(&self, line: usize, col: usize) -> T {
         self.inner[line * L + col]
     }
 
-    fn lines(&self) -> impl Iterator<Item = &[u8]> {
+    fn lines(&self) -> impl Iterator<Item = &[T]> {
         self.inner.chunks(C)
     }
 
-    fn line(&self, line_index: usize) -> &[u8] {
+    fn line(&self, line_index: usize) -> &[T] {
         assert!(line_index < L, "trying to access line {line_index} while there are only {L} lines in the grid");
         self
             .lines()
@@ -53,17 +53,17 @@ impl Grid {
             .map(|(_, values)| values).unwrap()
     }
 
-    fn columns(&self) -> impl Iterator<Item = Vec<u8>> + '_ {
+    fn columns(&self) -> impl Iterator<Item = Vec<T>> + '_ {
         let iter_col_with_offset =
             |o: usize| self.inner.iter().skip(o).step_by(C).take(C).map(|c| *c);
         let all = (0..C)
             .into_iter()
-            .map(move |col| iter_col_with_offset(col).collect::<Vec<u8>>());
+            .map(move |col| iter_col_with_offset(col).collect::<Vec<T>>());
 
         all
     }
 
-    fn column(&self, col_index: usize) -> Vec<u8> {
+    fn column(&self, col_index: usize) -> Vec<T> {
         assert!(col_index < L, "trying to access line {col_index} while there are only {L} lines in the grid");
         self
             .columns()
@@ -86,7 +86,7 @@ pub enum TryGridFromStrErr {
 }
 
 /// Init Grid form a char iterator
-impl<I> From<I> for Grid
+impl<I> From<I> for Grid<u8>
 where
     I: Iterator<Item = char>,
 {
@@ -113,9 +113,9 @@ where
     }
 }
 
-impl Default for Grid {
+impl<T> Default for Grid<T> where T: Default + Copy {
     fn default() -> Self {
-        Self { inner: [0; L * C] }
+        Self { inner: [T::default(); L * C] }
     }
 }
 
@@ -136,7 +136,7 @@ trait Forest {
     fn count_visible(&self) -> usize;
 }
 
-impl Forest for Grid {
+impl Forest for Grid<u8> {
     fn data(&self) -> &[u8; C * L] {
         &self.inner
     }
@@ -183,7 +183,7 @@ impl Forest for Grid {
 fn main() -> Result<()> {
     println!("Count the number of visible trees in a forest !");
     color_eyre::install()?;
-    let grid: Grid = EXAMPLE.chars().into();
+    let grid: Grid<u8> = EXAMPLE.chars().into();
     // dbg!(grid);
     Ok(())
 }
@@ -206,18 +206,18 @@ mod test {
 
     #[test]
     fn init_u8_grid_from_str() {
-        let grid: Grid = EXAMPLE.chars().into();
+        let grid: Grid<u8> = EXAMPLE.chars().into();
         assert_eq!(grid.inner, EXAMPLE_NB);
     }
 
     #[test]
     fn get_value_at_position() {
-        let grid: Grid = EXAMPLE.chars().into();
+        let grid: Grid<u8> = EXAMPLE.chars().into();
         assert_eq!(grid.get(0, 3), 7);
     }
     #[test]
     fn get_lines() {
-        let grid: Grid = EXAMPLE.chars().into();
+        let grid: Grid<u8> = EXAMPLE.chars().into();
         for l in grid.lines() {
             println!(
                 "{}",
@@ -228,7 +228,7 @@ mod test {
     }
     #[test]
     fn get_columns() {
-        let grid: Grid = EXAMPLE.chars().into();
+        let grid: Grid<u8> = EXAMPLE.chars().into();
         for l in grid.columns() {
             println!(
                 "{}",
@@ -240,7 +240,7 @@ mod test {
 
     #[test]
     fn count_visible_trees() {
-        let grid: Grid = EXAMPLE.chars().into();
+        let grid: Grid<u8> = EXAMPLE.chars().into();
         dbg!(grid.count_visible());
         assert!(false);
     }
