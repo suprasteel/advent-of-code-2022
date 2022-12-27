@@ -146,7 +146,6 @@ where
                     "{index} is out of grid length (L({L})*C({C})={})",
                     instance.inner.len()
                 );
-                // println!("{index} -> {c}");
                 instance.inner[index] = c.to_digit(10).unwrap() as u8;
                 index += 1;
             } else {
@@ -172,12 +171,14 @@ where
 // -- Forest trait
 // -------------------------
 
-fn slice_scenic_score(view: &[u8]) -> usize {
-    let h = &view[0];
+/// get the scenic score of the drection,
+/// pass the tree height and the slice of item in one direction, including the tree on which we
+/// compute the score
+fn slice_scenic_score(view: &[u8], height: u8) -> usize {
     view.iter()
-        .skip(1)
-        .position(|tree_h| tree_h >= h)
-        .unwrap_or_else(|| view.len() - 1)
+        .position(|tree_h| tree_h >= &height)
+        .map(|i| i + 1)
+        .unwrap_or_else(|| view.len())
 }
 
 trait Forest<const Z: usize> {
@@ -185,17 +186,9 @@ trait Forest<const Z: usize> {
     fn height(&self, line: usize, col: usize) -> u8;
     fn is_visible(&self, line: usize, col: usize) -> bool;
     fn count_visible(&self) -> usize;
-
-    /// get the scenic score of the drection,
-    /// pass the tree height and the slice of item in one direction, including the tree on which we
-    /// compute the score
-    fn scenic_score_in_direction(view: &[u8]) -> usize {
-        let h = &view[0];
-        view.iter()
-            .skip(1)
-            .position(|tree_h| tree_h >= h)
-            .unwrap_or_else(|| view.len() - 1)
-    }
+    fn tree_scenic_score(&self, line: usize, col: usize) -> usize;
+    fn scenic_score(&self) -> usize;
+    fn max_scenic_score(&self) -> (usize, usize, usize); // (l, c, val)
 }
 
 impl<const Z: usize> Forest<Z> for Grid<u8, Z> {
@@ -251,6 +244,46 @@ impl<const Z: usize> Forest<Z> for Grid<u8, Z> {
         log::debug!("{viz_grid}");
         count
     }
+
+    fn tree_scenic_score(&self, line: usize, col: usize) -> usize {
+        let h = self.height(line, col);
+        let line_values = self.line(line);
+        let columns_values = self.column(col);
+
+        let (left, right) = line_values.split_at(col);
+        let (top, bottom) = columns_values.split_at(line);
+        let left_score = slice_scenic_score(left, h);
+        let right_score = slice_scenic_score(&right[1..], h);
+        let top_score = slice_scenic_score(top, h);
+        let bottom_score = slice_scenic_score(&bottom[1..], h);
+        left_score * right_score * top_score * bottom_score
+    }
+
+    fn scenic_score(&self) -> usize {
+        let mut score = 0;
+        for l in 0..L {
+            for c in 0..C {
+                score += self.tree_scenic_score(l, c);
+            }
+        }
+        score
+    }
+
+    fn max_scenic_score(&self) -> (usize, usize, usize) {
+        let mut max_score = 0;
+        let mut coords = (0, 0);
+        for l in 0..L {
+            for c in 0..C {
+                let score = self.tree_scenic_score(l, c);
+                println!("{l}:{c}  >  {score}");
+                if score > max_score {
+                    max_score = score;
+                    coords = (l, c);
+                } 
+            }
+        }
+        (coords.0, coords.1, max_score)
+    }
 }
 
 impl<T, const Z: usize> Display for Grid<T, Z>
@@ -280,7 +313,9 @@ fn main() -> Result<()> {
     let data = read_to_string("./data/day8.dat")?;
     let grid: Grid<u8, { C * L }> = data.chars().into();
     let visibles = grid.count_visible();
+    let (scenic_l, scenic_c, max_scenic_score) = grid.max_scenic_score();
     log::info!("The number of visible trees in this forest is {visibles}");
+    log::info!("The top scenic score is {max_scenic_score} for tree ({scenic_l}, {scenic_c})");
     Ok(())
 }
 
@@ -343,7 +378,17 @@ mod test {
             (&[9, 1, 3, 5, 7, 9, 0], 5),
         ];
         for (input, expected) in slices {
-            assert_eq!(slice_scenic_score(input), expected);
+            let (h, view) = input.split_at(1);
+            assert_eq!(slice_scenic_score(view, h[0]), expected);
         }
+            assert_eq!(slice_scenic_score(&[], 5), 0);
+
+    }
+
+    #[test]
+    fn example_max_scenic_score() {
+        let grid: Grid<u8, Z> = EXAMPLE.chars().into();
+        assert_eq!(grid.max_scenic_score(), (3, 2, 8));
+        
     }
 }
