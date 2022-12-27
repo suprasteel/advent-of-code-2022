@@ -44,6 +44,15 @@ impl Grid {
         self.inner.chunks(C)
     }
 
+    fn line(&self, line_index: usize) -> &[u8] {
+        assert!(line_index < L, "trying to access line {line_index} while there are only {L} lines in the grid");
+        self
+            .lines()
+            .enumerate()
+            .find(|(i, _)| i ==& line_index)
+            .map(|(_, values)| values).unwrap()
+    }
+
     fn columns(&self) -> impl Iterator<Item = Vec<u8>> + '_ {
         let iter_col_with_offset =
             |o: usize| self.inner.iter().skip(o).step_by(C).take(C).map(|c| *c);
@@ -53,6 +62,16 @@ impl Grid {
 
         all
     }
+
+    fn column(&self, col_index: usize) -> Vec<u8> {
+        assert!(col_index < L, "trying to access line {col_index} while there are only {L} lines in the grid");
+        self
+            .columns()
+            .enumerate()
+            .find(|(i, _)| i ==&col_index)
+            .map(|(_, values)| values).unwrap()
+    }
+
 }
 
 // -------------------------
@@ -103,33 +122,57 @@ impl Default for Grid {
 // -------------------------
 // -- Forest trait
 // -------------------------
+fn p_u8s(a: &[u8]) {
+    println!(
+        "{}",
+        a.iter().fold("".into(), |acc, u| format!("{acc} {u}"))
+    );
+}
 
 trait Forest {
-    fn count_visible<const N: usize>(tree_heights: &[u8; N]) -> usize {
-        // change line to 'mountain'
-        // from '1232245723934011321'
-        // to   '1233345777944333321'
-        // then count where two following items are !=
-        //
+    fn data(&self) -> &[u8; C * L];
+    fn height(&self, line :usize, col: usize) -> u8;
+    fn is_visible(&self, line: usize, col: usize) -> bool;
+    fn count_visible(&self) -> usize;
+}
 
-        let mut highest_left = 0;
-        let mut lowest_right = 9;
-        let mut height_to_be_visible_from_left_to_right = [0; N];
-        let mut height_to_be_visible_from_right_to_left = [0; N];
-        for (index, current) in tree_heights.iter().enumerate() {
-            let current = *current;
-            if current > highest_left {
-                highest_left = current;
+impl Forest for Grid {
+    fn data(&self) -> &[u8; C * L] {
+        &self.inner
+    }
+
+    fn height(&self, line: usize, col: usize) -> u8 {
+        self.get(line, col)
+    }
+
+    fn is_visible(&self, line: usize, col: usize) -> bool {
+
+        let h = self.height(line, col);
+        let line_values = self.line(line);
+        let columns_values = self.column(col);
+
+        // vis from west : does some tree of heigth >= is found on the left
+        let left_viz = line_values.iter().take(col).find(|v| **v > h).is_some();
+        let right_viz = line_values.iter().rev().take(C - col).find(|v| **v > h).is_some();
+        let top_viz = columns_values.iter().take(line).find(|v| **v > h).is_some();
+        let bottom_viz = columns_values.iter().rev().take(L - line).find(|v| **v > h).is_some();
+
+        left_viz || right_viz || top_viz || bottom_viz
+    }
+
+    fn count_visible(&self) -> usize {
+        let mut count = 0;
+        for l in 0..L {
+            for c in 0..C {
+                if self.is_visible(l, c) {
+                    println!("({l}, {c}) is visible");
+                    count += 1;
+                } else {
+                    println!("({l}, {c}) is NOT visible");
+                }
             }
-            if current < highest_left {
-                lowest_right = current;
-            }
-            height_to_be_visible_from_left_to_right[index] = highest_left;
-            height_to_be_visible_from_right_to_left[index] = lowest_right;
         }
-
-        //list.iter().fold((0_usize, |acc, h| h)
-        0
+        count
     }
 }
 
@@ -151,7 +194,7 @@ fn main() -> Result<()> {
 
 #[cfg(test)]
 mod test {
-    use crate::{Grid, EXAMPLE};
+    use crate::{Forest, Grid, EXAMPLE};
 
     #[rustfmt::skip]
     const EXAMPLE_NB: [u8; 25] = [
@@ -176,7 +219,10 @@ mod test {
     fn get_lines() {
         let grid: Grid = EXAMPLE.chars().into();
         for l in grid.lines() {
-            println!("{}", l.iter().fold("".into(), |acc, u| format!("{acc} {u}")));
+            println!(
+                "{}",
+                l.iter().fold("".into(), |acc, u| format!("{acc} {u}"))
+            );
         }
         assert!(false);
     }
@@ -184,8 +230,18 @@ mod test {
     fn get_columns() {
         let grid: Grid = EXAMPLE.chars().into();
         for l in grid.columns() {
-            println!("{}", l.iter().fold("".into(), |acc, u| format!("{acc} {u}")));
+            println!(
+                "{}",
+                l.iter().fold("".into(), |acc, u| format!("{acc} {u}"))
+            );
         }
+        assert!(false);
+    }
+
+    #[test]
+    fn count_visible_trees() {
+        let grid: Grid = EXAMPLE.chars().into();
+        dbg!(grid.count_visible());
         assert!(false);
     }
 }
